@@ -1,7 +1,7 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-defineProps({ productos: Array });
+defineProps({ productos: Array, visitas : Number });
 
 const eliminar = (id) => {
     if (confirm('¿Estás seguro de eliminar este producto?')) {
@@ -11,7 +11,7 @@ const eliminar = (id) => {
 </script>
 
 <template>
-  <AppLayout>
+  <AppLayout :visitas="visitas">
     <div class="min-h-screen bg-gray-50">
       <!-- Header -->
       <div class="bg-white shadow-sm border-b">

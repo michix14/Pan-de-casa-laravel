@@ -7,9 +7,11 @@ import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import NavLink from "@/Components/NavLink.vue";
 import ResponsiveNavLink from "@/Components/ResponsiveNavLink.vue";
+import Footer from "@/Components/VisitaFooter.vue";
 
 defineProps({
     title: String,
+    visitas: Number //  añade esto si visitas viene como prop
 });
 
 const showingNavigationDropdown = ref(false);
@@ -517,4 +519,5 @@ const logout = () => {
             </main>
         </div>
     </div>
+    <Footer :visitas="visitas" />
 </template>

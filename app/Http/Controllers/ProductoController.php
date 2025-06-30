@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Producto;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Models\Visita;
 
 class ProductoController extends Controller
 {
@@ -13,8 +14,13 @@ class ProductoController extends Controller
      */
     public function index()
     {
+        $page_name = request()->path(); // Devuelve "productos"
+        $visita = Visita::where('page_name', $page_name)->first();
+        $visitas = $visita ? $visita->cant : 0;
+
         return Inertia::render('Productos/Index', [
-            'productos' => Producto::all()
+            'productos' => Producto::all(),
+            'visitas' => $visitas
         ]);
     }
 

@@ -35,5 +35,9 @@ Route::middleware([
     })->name('dashboard');
 });
 
-Route::resource('productos', ProductoController::class);
+Route::resource('productos', ProductoController::class)->middleware([
+    'auth', // si tienes auth
+    \App\Http\Middleware\VisitasMiddleware::class, // tu middleware
+]);
+
 
