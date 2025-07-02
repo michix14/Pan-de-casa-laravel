@@ -4,6 +4,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Application;
 use App\Http\Controllers\ProductoController;
+use App\Http\Controllers\PedidoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,6 +37,11 @@ Route::middleware([
 });
 
 Route::resource('productos', ProductoController::class)->middleware([
+    'auth', // si tienes auth
+    \App\Http\Middleware\VisitasMiddleware::class, // tu middleware
+]);
+
+Route::resource('pedidos', PedidoController::class)->middleware([
     'auth', // si tienes auth
     \App\Http\Middleware\VisitasMiddleware::class, // tu middleware
 ]);
