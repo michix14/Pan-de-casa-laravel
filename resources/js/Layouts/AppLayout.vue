@@ -80,6 +80,14 @@ const logout = () => {
                                 >
                                     Pedidos
                                 </NavLink>
+                                <NavLink
+                                    :href="route('ventas.index')"
+                                    :active="route().current('ventas.index')"
+                                    v-if="$page.props.auth.user.is_cliente"
+                                    class="text-navigation"
+                                >
+                                    Ventas
+                                </NavLink>
                             </div>
                             
                         </div>
