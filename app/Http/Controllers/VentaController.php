@@ -119,6 +119,11 @@ class VentaController extends Controller
                     'metodo_pago' => 'EFECTIVO',
                 ]);
 
+                if ($venta->pedido) {
+                    $venta->pedido->estado = 'COMPLETADO';
+                    $venta->pedido->save();
+                }
+
                 DB::commit();
                 return redirect()->route('ventas.index')->with('success', 'Venta registrada y pagada en efectivo.');
             }
