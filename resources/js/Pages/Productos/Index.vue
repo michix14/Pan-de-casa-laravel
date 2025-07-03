@@ -83,7 +83,7 @@ const eliminar = (id) => {
                   <div class="flex-shrink-0 h-12 w-12">
                     <img 
                       v-if="producto.imagen_url" 
-                      :src="producto.imagen_url" 
+                      :src="`/inf513/grupo19sc/proyecto2/public/${producto.imagen_url}`"  
                       :alt="producto.nombre"
                       class="h-12 w-12 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
                     />
@@ -133,7 +133,7 @@ const eliminar = (id) => {
                 <div class="flex-shrink-0">
                   <img 
                     v-if="producto.imagen_url" 
-                    :src="producto.imagen_url" 
+                    :src="`/inf513/grupo19sc/proyecto2/public/${producto.imagen_url}`" 
                     :alt="producto.nombre"
                     class="h-16 w-16 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
                   />
