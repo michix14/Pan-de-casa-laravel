@@ -71,7 +71,7 @@ const logout = () => {
                                 <NavLink
                                     :href="route('usuarios.index')"
                                     :active="route().current('usuarios.index')"
-                                    v-if="$page.props.auth.user.is_cliente"
+                                    v-if="$page.props.auth.user.is_gerente || $page.props.auth.user.is_cajero"
                                     class="text-navigation"
                                 >
                                     Usuarios
