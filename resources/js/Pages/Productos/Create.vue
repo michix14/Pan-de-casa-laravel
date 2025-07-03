@@ -6,9 +6,9 @@ import { Link } from '@inertiajs/vue3';
 
 <template>
   <AppLayout>
-    <div class="min-h-screen bg-gray-50">
+    <div class="min-h-screen bg-gray-50 dark:bg-gray-700">
       <!-- Header -->
-      <div class="bg-white border-b border-gray-200">
+      <div class="bg-white border-b border-gray-200 dark:bg-gray-700">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div class="flex items-center justify-between">
             <div>
