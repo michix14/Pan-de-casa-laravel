@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('venta_id')->constrained('ventas')->onDelete('cascade');
             $table->decimal('monto', 10, 2);
             $table->dateTime('fecha');
-            $table->enum('metodo_pago', ['efectivo', 'tarjeta']);
+            $table->enum('metodo_pago', ['EFECTIVO', 'TARJETA']);
         });
     }
 
