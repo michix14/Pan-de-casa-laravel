@@ -1,5 +1,47 @@
 <script setup>
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import { onMounted, ref } from 'vue';
+import { Chart, registerables } from 'chart.js';
+Chart.register(...registerables);
+
+const props = defineProps({
+  reporteVentas: Object,
+  ventasPorDia: Array
+});
+
+const chartRef = ref(null);
+
+onMounted(() => {
+  const fechas = props.ventasPorDia.map(item => item.fecha);
+  const totales = props.ventasPorDia.map(item => item.total);
+
+  new Chart(chartRef.value, {
+    type: 'line',
+    data: {
+      labels: fechas,
+      datasets: [{
+        label: 'Total vendido por día',
+        data: totales,
+        borderColor: 'rgb(255, 99, 132)',
+        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+        fill: true,
+        tension: 0.4,
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Monto Bs' }
+        },
+        x: {
+          title: { display: true, text: 'Fecha' }
+        }
+      }
+    }
+  });
+});
 </script>
 
 <template>
@@ -58,6 +100,13 @@ import ApplicationLogo from '@/Components/ApplicationLogo.vue';
         >
           Ver ventas →
         </router-link>
+      </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto mt-16">
+      <h2 class="text-xl font-semibold text-gray-800 dark:text-white mb-4">Ventas de los últimos días</h2>
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+        <canvas ref="chartRef" height="100"></canvas>
       </div>
     </div>
   </div>
