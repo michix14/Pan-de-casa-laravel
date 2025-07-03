@@ -20,7 +20,7 @@ onMounted(() => {
 
 const eliminarPromocion = (id) => {
     if (confirm("¿Deseas eliminar esta promoción?")) {
-        router.delete(`/promociones/${id}`, {
+        router.delete(route("promociones.destroy", id), {
             preserveScroll: true,
             onSuccess: () => toast.success("Promoción eliminada correctamente"),
             onError: () => toast.error("Ocurrió un error al eliminar"),
@@ -54,7 +54,7 @@ const eliminarPromocion = (id) => {
                         </div>
                         <div class="mt-4 sm:mt-0">
                             <Link
-                                href="/promociones/create"
+                                :href="route('promociones.create')"
                                 class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow"
                             >
                                 + Crear Promoción
@@ -152,7 +152,7 @@ const eliminarPromocion = (id) => {
                                     class="px-6 py-4 text-sm text-right space-x-2"
                                 >
                                     <Link
-                                        :href="`/promociones/${promo.id}/edit`"
+                                        :href="route('promociones.edit', promo.id)"
                                         class="text-blue-600 hover:text-blue-800 dark:hover:text-blue-400"
                                     >
                                         Editar

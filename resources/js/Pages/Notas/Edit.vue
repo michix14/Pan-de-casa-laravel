@@ -49,7 +49,7 @@ const productosDisponibles = (indexActual) => {
 };
 
 const submit = () => {
-    router.put(`/notas/${props.nota.id_nota}`, form, {
+    router.put(route("notas.update", props.nota.id_nota), form, {
         onSuccess: () => {
             toast.success("Nota actualizada correctamente");
         },

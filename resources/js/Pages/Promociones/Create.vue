@@ -26,7 +26,7 @@ const eliminarProducto = (index) => {
 };
 
 const submit = () => {
-    router.post('/promociones', form, {
+    router.post(route('promociones.store'), form, {
         onSuccess: () => toast.success('Promoción registrada correctamente'),
         onError: () => toast.error('Error al registrar la promoción'),
     });

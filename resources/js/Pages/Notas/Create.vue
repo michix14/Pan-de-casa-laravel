@@ -57,7 +57,7 @@ const total = computed(() => {
 });
 
 const enviarFormulario = () => {
-    router.post("/notas", {
+    router.post(route("notas.store"), {
         fecha_realizado: form.fecha_realizado,
         tipo_nota: form.tipo_nota,
         detalles: form.detalles,

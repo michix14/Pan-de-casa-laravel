@@ -28,7 +28,7 @@ const eliminarProducto = (index) => {
 };
 
 const submit = () => {
-    router.put(`/promociones/${props.promocion.id}`, form, {
+    router.put(route('promociones.update', props.promocion.id), form, {
         onSuccess: () => toast.success('Promoción actualizada correctamente'),
         onError: () => toast.error('Error al actualizar la promoción'),
     });

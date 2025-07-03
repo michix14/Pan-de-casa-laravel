@@ -10,7 +10,7 @@ defineProps({
 
 const eliminarNota = (id) => {
     if (confirm("¿Estás seguro de que deseas eliminar esta nota?")) {
-        router.delete(`/notas/${id}`, {
+        router.delete(route("notas.destroy", id), {
             onSuccess: () => toast.success("Nota eliminada correctamente"),
             onError: () => toast.error("Ocurrió un error al eliminar la nota"),
         });
