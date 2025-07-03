@@ -33,7 +33,7 @@ const eliminarNota = (id) => {
                         </div>
                         <div class="mt-4 sm:mt-0">
                             <Link
-                                href="/notas/create"
+                                :href="route('notas.create')"
                                 class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                             >
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,7 +87,7 @@ const eliminarNota = (id) => {
                                 </td>
                                 <td class="px-6 py-4 text-sm text-right space-x-2">
                                     <Link
-                                        :href="`/notas/${nota.id_nota}/edit`"
+                                        :href="route('notas.edit', nota.id_nota)"
                                         class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
                                     >
                                         Editar

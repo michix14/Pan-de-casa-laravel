@@ -93,6 +93,8 @@ const logout = () => {
                                     class="text-navigation"
                                 >
                                     Promociones
+                                 </NavLink>
+                                 <NavLink
                                     :href="route('pedidos.index')"
                                     :active="route().current('pedidos.index')"
                                     v-if="$page.props.auth.user.is_cliente"
