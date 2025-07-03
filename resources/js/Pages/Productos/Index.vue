@@ -12,14 +12,14 @@ const eliminar = (id) => {
 
 <template>
   <AppLayout :visitas="visitas">
-    <div class="min-h-screen bg-gray-50">
+    <div class="min-h-screen bg-gray-50 dark:bg-gray-800 ">
       <!-- Header -->
-      <div class="bg-white shadow-sm border-b">
+      <div class="bg-white  dark:bg-gray-800 shadow-sm border-b dark:border-gray-600">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 class="text-3xl font-bold text-gray-900">Productos</h1>
-              <p class="mt-1 text-sm text-gray-600">Gestiona tu inventario de productos</p>
+              <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Productos</h1>
+              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Gestiona tu inventario de productos</p>
             </div>
             <div class="mt-4 sm:mt-0">
               <Link 
@@ -42,33 +42,33 @@ const eliminar = (id) => {
           <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
           </svg>
-          <h3 class="mt-2 text-sm font-medium text-gray-900">No hay productos</h3>
-          <p class="mt-1 text-sm text-gray-500">Comienza creando tu primer producto.</p>
+          <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No hay productos</h3>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Comienza creando tu primer producto.</p>
         </div>
 
         <!-- Desktop Table -->
-        <div v-else class="hidden lg:block bg-white shadow-sm rounded-lg overflow-hidden">
+        <div v-else class="hidden lg:block bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
           <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
+            <thead class="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Imagen</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Producto</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descripción</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Precio</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Stock</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Imagen</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="producto in productos" :key="producto.id" class="hover:bg-gray-50 transition-colors duration-150">
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200">
+              <tr v-for="producto in productos" :key="producto.id" class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150">
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm font-medium text-gray-900">{{ producto.nombre }}</div>
+                  <div class="text-sm font-medium text-gray-900 dark:text-white">{{ producto.nombre }}</div>
                 </td>
                 <td class="px-6 py-4">
-                  <div class="text-sm text-gray-900 max-w-xs truncate">{{ producto.descripcion }}</div>
+                  <div class="text-sm text-gray-900 dark:text-white max-w-xs truncate">{{ producto.descripcion }}</div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm font-semibold text-green-600">Bs.{{ producto.precio }}</div>
+                  <div class="text-sm font-semibold text-green-600 dark:text-green-400">Bs.{{ producto.precio }}</div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <span :class="[
@@ -85,7 +85,7 @@ const eliminar = (id) => {
                       v-if="producto.imagen_url" 
                       :src="producto.imagen_url" 
                       :alt="producto.nombre"
-                      class="h-12 w-12 rounded-lg object-cover border border-gray-200"
+                      class="h-12 w-12 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
                     />
                     <div v-else class="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center">
                       <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -126,7 +126,7 @@ const eliminar = (id) => {
           <div 
             v-for="producto in productos" 
             :key="producto.id" 
-            class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+            class="bg-white  dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden"
           >
             <div class="p-4">
               <div class="flex items-start space-x-4">
@@ -135,7 +135,7 @@ const eliminar = (id) => {
                     v-if="producto.imagen_url" 
                     :src="producto.imagen_url" 
                     :alt="producto.nombre"
-                    class="h-16 w-16 rounded-lg object-cover border border-gray-200"
+                    class="h-16 w-16 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
                   />
                   <div v-else class="h-16 w-16 rounded-lg bg-gray-100 flex items-center justify-center">
                     <svg class="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -144,10 +144,10 @@ const eliminar = (id) => {
                   </div>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="text-lg font-medium text-gray-900 truncate">{{ producto.nombre }}</h3>
-                  <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ producto.descripcion }}</p>
+                  <h3 class="text-lg font-medium text-gray-900 dark:text-white truncate">{{ producto.nombre }}</h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{{ producto.descripcion }}</p>
                   <div class="mt-2 flex items-center justify-between">
-                    <span class="text-lg font-semibold text-green-600">Bs.{{ producto.precio }}</span>
+                    <span class="text-lg font-semibold text-green-600 dark:text-green-400">Bs.{{ producto.precio }}</span>
                     <span :class="[
                       'inline-flex px-2 py-1 text-xs font-semibold rounded-full',
                       producto.stock > 10 ? 'bg-green-100 text-green-800' : 

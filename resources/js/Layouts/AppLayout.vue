@@ -1,4 +1,6 @@
 <script setup>
+import { useDarkMode } from "@/theme";
+const { isDark } = useDarkMode();
 import { ref } from "vue";
 import { Head, Link, router } from "@inertiajs/vue3";
 import ApplicationMark from "@/Components/ApplicationMark.vue";
@@ -11,7 +13,7 @@ import Footer from "@/Components/VisitaFooter.vue";
 
 defineProps({
     title: String,
-    visitas: Number //  añade esto si visitas viene como prop
+    visitas: Number, //  añade esto si visitas viene como prop
 });
 
 const showingNavigationDropdown = ref(false);
@@ -39,8 +41,10 @@ const logout = () => {
 
         <Banner />
 
-        <div class="min-h-screen bg-gray-100">
-            <nav class="bg-white border-b border-gray-100">
+        <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
+            <nav
+                class="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700"
+            >
                 <!-- Primary Navigation Menu -->
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between h-16">
@@ -71,6 +75,24 @@ const logout = () => {
                                     class="text-navigation"
                                 >
                                     Productos
+                                </NavLink>
+                                <NavLink
+                                    :href="route('notas.index')"
+                                    :active="route().current('notas.index')"
+                                    v-if="$page.props.auth.user.is_cliente"
+                                    class="text-navigation"
+                                >
+                                    Notas
+                                </NavLink>
+                                <NavLink
+                                    :href="route('promociones.index')"
+                                    :active="
+                                        route().current('promociones.index')
+                                    "
+                                    v-if="$page.props.auth.user.is_cliente"
+                                    class="text-navigation"
+                                >
+                                    Promociones
                                 </NavLink>
                             </div>
                         </div>
@@ -216,6 +238,12 @@ const logout = () => {
                             </div>
 
                             <!-- Settings Dropdown -->
+                            <button
+                                @click="isDark = !isDark"
+                                class="ml-2 p-2 rounded bg-gray-200 dark:bg-gray-700 text-black dark:text-white"
+                            >
+                                {{ isDark ? "🌙 Oscuro" : "☀️ Claro" }}
+                            </button>
                             <div class="ms-3 relative">
                                 <Dropdown align="right" width="48">
                                     <template #trigger>
@@ -507,7 +535,10 @@ const logout = () => {
             </nav>
 
             <!-- Page Heading -->
-            <header v-if="$slots.header" class="bg-white shadow">
+            <header
+                v-if="$slots.header"
+                class="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800"
+            >
                 <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                     <slot name="header" />
                 </div>

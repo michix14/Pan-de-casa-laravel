@@ -1,5 +1,11 @@
 import './bootstrap';
 import '../css/app.css';
+import Toast from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
+
+import { setupTheme } from './theme';
+
+setupTheme();
 
 import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
