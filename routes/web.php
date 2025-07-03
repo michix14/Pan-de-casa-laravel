@@ -9,6 +9,7 @@ use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\PedidoController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\StripeController;
+use App\Http\Controllers\UsuarioController;
 
 
 /*
@@ -69,6 +70,11 @@ Route::resource('pedidos', PedidoController::class)->middleware([
 Route::resource('ventas', VentaController::class)->middleware([
     'auth', // si tienes auth
     \App\Http\Middleware\VisitasMiddleware::class, // tu middleware
+]);
+
+Route::resource('usuarios', UsuarioController::class)->middleware([
+    'auth',
+    \App\Http\Middleware\VisitasMiddleware::class,
 ]);
 
 Route::get('ventas/{venta}/stripe', [StripeController::class, 'form'])->name('stripe.form');
