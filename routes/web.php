@@ -11,6 +11,7 @@ use App\Http\Controllers\VentaController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\BusquedaGlobalController;
 
 
 /*
@@ -81,4 +82,5 @@ Route::post('stripe/procesar', [StripeController::class, 'procesar'])->name('str
 Route::get('stripe/success/{venta}', [StripeController::class, 'success'])->name('stripe.success');
 Route::get('/ventas/{id}/success', [StripeController::class, 'success'])->name('stripe.success');
 Route::get('/stripe/cancel', [StripeController::class, 'cancel'])->name('stripe.cancel');
+Route::get('/buscar-global', [BusquedaGlobalController::class, 'buscar'])->name('buscar.global');
 
