@@ -14,6 +14,7 @@ const form = useForm({
   tipo: '',
   estado: 'PENDIENTE',
   fecha_entrega: '',
+  metodo_pago: '',
   detalles: []
 });
 
@@ -80,6 +81,17 @@ const totalVenta = computed(() => {
           <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Entrega</label>
           <input type="date" v-model="form.fecha_entrega" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring focus:ring-blue-200" />
           <div v-if="form.errors.fecha_entrega" class="text-red-600 text-sm mt-1">{{ form.errors.fecha_entrega }}</div>
+        </div>
+
+        <!-- Método de Pago -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
+          <select v-model="form.metodo_pago" class="w-full border-gray-300 rounded-lg shadow-sm">
+            <option value="">Seleccione</option>
+            <option value="EFECTIVO">EFECTIVO</option>
+            <option value="TARJETA">TARJETA (Stripe)</option>
+          </select>
+          <div v-if="form.errors.metodo_pago" class="text-red-600 text-sm mt-1">{{ form.errors.metodo_pago }}</div>
         </div>
 
         <!-- Productos -->
