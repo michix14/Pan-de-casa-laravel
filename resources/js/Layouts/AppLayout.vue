@@ -63,7 +63,7 @@ const logout = () => {
                                 <NavLink
                                     :href="route('dashboard')"
                                     :active="route().current('dashboard')"
-                                    v-if="$page.props.auth.user.is_cliente"
+                                    v-if="$page.props.auth.user.is_gerente || $page.props.auth.user.is_cajero"
                                     class="text-navigation"
                                 >
                                     Dashboard
@@ -71,7 +71,7 @@ const logout = () => {
                                 <NavLink
                                     :href="route('productos.index')"
                                     :active="route().current('productos.index')"
-                                    v-if="$page.props.auth.user.is_cliente"
+                                    v-if="$page.props.auth.user.is_gerente"
                                     class="text-navigation"
                                 >
                                     Productos
@@ -79,7 +79,7 @@ const logout = () => {
                                 <NavLink
                                     :href="route('notas.index')"
                                     :active="route().current('notas.index')"
-                                    v-if="$page.props.auth.user.is_cliente"
+                                    v-if="$page.props.auth.user.is_gerente"
                                     class="text-navigation"
                                 >
                                     Notas
@@ -89,15 +89,16 @@ const logout = () => {
                                     :active="
                                         route().current('promociones.index')
                                     "
-                                    v-if="$page.props.auth.user.is_cliente"
+                                    v-if="$page.props.auth.user.is_gerente"
                                     class="text-navigation"
                                 >
                                     Promociones
                                  </NavLink>
+
                                  <NavLink
                                     :href="route('pedidos.index')"
                                     :active="route().current('pedidos.index')"
-                                    v-if="$page.props.auth.user.is_cliente"
+                                    v-if="$page.props.auth.user.is_cajero || $page.props.auth.user.is_gerente"
                                     class="text-navigation"
                                 >
                                     Pedidos
@@ -105,7 +106,7 @@ const logout = () => {
                                 <NavLink
                                     :href="route('ventas.index')"
                                     :active="route().current('ventas.index')"
-                                    v-if="$page.props.auth.user.is_cliente"
+                                    v-if="$page.props.auth.user.is_cajero || $page.props.auth.user.is_gerente"
                                     class="text-navigation"
                                 >
                                     Ventas
