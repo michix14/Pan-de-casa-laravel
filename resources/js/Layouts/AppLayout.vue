@@ -80,7 +80,7 @@ function searchGlobal() {
                                     <ApplicationMark class="block h-9 w-auto" />
                                 </Link>
                             </div>
-                            <div class="relative w-64">
+                            <div class="relative flex items-center w-80 space-x-2 p-6">
                                 <input
                                 type="text"
                                     v-model="searchQuery"
