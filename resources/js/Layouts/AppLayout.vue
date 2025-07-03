@@ -1,7 +1,7 @@
 <script setup>
 import { useDarkMode } from "@/theme";
 const { isDark } = useDarkMode();
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { Head, Link, router } from "@inertiajs/vue3";
 import ApplicationMark from "@/Components/ApplicationMark.vue";
 import Banner from "@/Components/Banner.vue";
@@ -33,6 +33,31 @@ const switchToTeam = (team) => {
 const logout = () => {
     router.post(route("logout"));
 };
+const searchQuery = ref('');
+
+const rutas = [
+  { label: 'Ventas', path: route('ventas.index') },
+  { label: 'Usuarios', path: route('usuarios.index') },
+  { label: 'Productos', path: route('productos.index') },
+  { label: 'Pedidos', path: route('pedidos.index') },
+  { label: 'Promociones', path: route('promociones.index') },
+  { label: 'Dashboard', path: route('dashboard') },
+  // Agrega más rutas según tu sistema
+];
+
+const filteredRoutes = computed(() => {
+  const query = searchQuery.value.toLowerCase();
+  if (!query) return [];
+  return rutas.filter(r => r.label.toLowerCase().includes(query));
+});
+
+function goTo(path) {
+  router.visit(path);
+}
+function searchGlobal() {
+  if (searchQuery.value.trim() === '') return
+  router.get(route('buscar.global'), { q: searchQuery.value })
+}
 </script>
 
 <template>
@@ -55,7 +80,25 @@ const logout = () => {
                                     <ApplicationMark class="block h-9 w-auto" />
                                 </Link>
                             </div>
-
+                            <div class="relative w-64">
+                                <input
+                                type="text"
+                                    v-model="searchQuery"
+                                    placeholder="Buscar..."
+                                    @keydown.enter="searchGlobal"
+                                    class="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none"
+                                />
+                                <ul v-if="filteredRoutes.length" class="absolute z-50 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 mt-1 rounded-md shadow-md max-h-60 overflow-y-auto w-full">
+                                    <li
+                                        v-for="route in filteredRoutes"
+                                        :key="route.path"
+                                        @click="goTo(route.path)"
+                                        class="px-4 py-2 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
+                                    >
+                                        {{ route.label }}
+                                    </li>
+                                </ul>
+                            </div>
                             <!-- Navigation Links -->
                             <div
                                 class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex"
