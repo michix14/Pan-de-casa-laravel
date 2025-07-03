@@ -6,6 +6,9 @@ use Illuminate\Foundation\Application;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\NotaController;
 use App\Http\Controllers\PromocionController;
+use App\Http\Controllers\PedidoController;
+use App\Http\Controllers\VentaController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -56,3 +59,15 @@ Route::resource('productos', ProductoController::class)->middleware([
     'auth', // si tienes auth
     \App\Http\Middleware\VisitasMiddleware::class, // tu middleware
 ]);
+
+Route::resource('pedidos', PedidoController::class)->middleware([
+    'auth', // si tienes auth
+    \App\Http\Middleware\VisitasMiddleware::class, // tu middleware
+]);
+
+Route::resource('ventas', VentaController::class)->middleware([
+    'auth', // si tienes auth
+    \App\Http\Middleware\VisitasMiddleware::class, // tu middleware
+]);
+
+

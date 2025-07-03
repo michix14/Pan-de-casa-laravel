@@ -93,8 +93,23 @@ const logout = () => {
                                     class="text-navigation"
                                 >
                                     Promociones
+                                    :href="route('pedidos.index')"
+                                    :active="route().current('pedidos.index')"
+                                    v-if="$page.props.auth.user.is_cliente"
+                                    class="text-navigation"
+                                >
+                                    Pedidos
+                                </NavLink>
+                                <NavLink
+                                    :href="route('ventas.index')"
+                                    :active="route().current('ventas.index')"
+                                    v-if="$page.props.auth.user.is_cliente"
+                                    class="text-navigation"
+                                >
+                                    Ventas
                                 </NavLink>
                             </div>
+                            
                         </div>
 
                         <div class="hidden sm:flex sm:items-center sm:ms-6">
