@@ -69,6 +69,14 @@ const logout = () => {
                                     Dashboard
                                 </NavLink>
                                 <NavLink
+                                    :href="route('usuarios.index')"
+                                    :active="route().current('usuarios.index')"
+                                    v-if="$page.props.auth.user.is_cliente"
+                                    class="text-navigation"
+                                >
+                                    Usuarios
+                                </NavLink>
+                                <NavLink
                                     :href="route('productos.index')"
                                     :active="route().current('productos.index')"
                                     v-if="$page.props.auth.user.is_gerente"
