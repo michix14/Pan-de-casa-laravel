@@ -10,6 +10,7 @@ use App\Http\Controllers\PedidoController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UsuarioController;
+use App\Http\Controllers\ReporteController;
 
 
 /*
@@ -38,10 +39,8 @@ Route::middleware([
     'verified',
     \App\Http\Middleware\VisitasMiddleware::class,
 ])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
-
+    Route::get('/dashboard', [ReporteController::class, 'index'])->name('dashboard');
+    
     //Notas
     Route::get('/notas', [NotaController::class, 'index'])->name('notas.index');
     Route::get('/notas/create', [NotaController::class, 'create'])->name('notas.create');
@@ -82,3 +81,4 @@ Route::post('stripe/procesar', [StripeController::class, 'procesar'])->name('str
 Route::get('stripe/success/{venta}', [StripeController::class, 'success'])->name('stripe.success');
 Route::get('/ventas/{id}/success', [StripeController::class, 'success'])->name('stripe.success');
 Route::get('/stripe/cancel', [StripeController::class, 'cancel'])->name('stripe.cancel');
+
