@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Visita;
+use App\Models\Pago;
 use Carbon\Carbon;
 use DB;
 
@@ -41,6 +42,7 @@ class VentaController extends Controller
             'usuario_id' => 'required|exists:users,id',
             'tipo' => 'required|in:TIENDA,ENVIO,RECOJO',
             'estado' => 'required|in:PENDIENTE,COMPLETADO,CANCELADO',
+            'metodo_pago' => 'required|in:EFECTIVO,TARJETA',
             'fecha_entrega' => ['required', 'date', function ($attribute, $value, $fail) {
                 $fecha = Carbon::parse($value)->startOfDay();
                 $hoy = Carbon::today();
@@ -55,6 +57,7 @@ class VentaController extends Controller
             'usuario_id.required' => 'El usuario es obligatorio.',
             'tipo.required' => 'El tipo es obligatorio.',
             'estado.required' => 'El estado es obligatorio.',
+            'metodo_pago.required' => 'Debe seleccionar un método de pago.',
             'fecha_entrega.required' => 'La fecha de entrega es obligatoria.',
             'detalles.required' => 'Debe ingresar al menos un producto.',
         ]);
@@ -62,7 +65,6 @@ class VentaController extends Controller
         DB::beginTransaction();
 
         try {
-            // Crear el pedido
             $pedido = Pedido::create([
                 'usuario_id' => $request->usuario_id,
                 'tipo' => $request->tipo,
@@ -70,7 +72,6 @@ class VentaController extends Controller
                 'fecha_entrega' => $request->fecha_entrega,
             ]);
 
-            // Calcular total
             $totalVenta = 0;
             $detalles = [];
 
@@ -84,7 +85,6 @@ class VentaController extends Controller
                 $subtotal = $producto->precio * $detalle['cantidad'];
                 $totalVenta += $subtotal;
 
-                // Guardar detalle temporal para luego
                 $detalles[] = [
                     'producto_id' => $producto->id,
                     'cantidad' => $detalle['cantidad'],
@@ -92,18 +92,15 @@ class VentaController extends Controller
                     'total' => $subtotal,
                 ];
 
-                // Descontar stock
                 $producto->decrement('stock', $detalle['cantidad']);
             }
 
-            // Crear la venta
             $venta = Venta::create([
                 'pedido_id' => $pedido->id,
                 'fecha' => now(),
                 'total' => $totalVenta,
             ]);
 
-            // Guardar los detalles
             foreach ($detalles as $d) {
                 DetalleVenta::create([
                     'venta_id' => $venta->id,
@@ -114,8 +111,20 @@ class VentaController extends Controller
                 ]);
             }
 
+            if ($request->metodo_pago === 'EFECTIVO') {
+                Pago::create([
+                    'venta_id' => $venta->id,
+                    'monto' => $totalVenta,
+                    'fecha' => now(),
+                    'metodo_pago' => 'EFECTIVO',
+                ]);
+
+                DB::commit();
+                return redirect()->route('ventas.index')->with('success', 'Venta registrada y pagada en efectivo.');
+            }
+
             DB::commit();
-            return redirect()->route('ventas.index')->with('success', 'Venta registrada exitosamente.');
+            return redirect()->route('stripe.form', ['venta' => $venta->id]);
 
         } catch (\Exception $e) {
             DB::rollBack();

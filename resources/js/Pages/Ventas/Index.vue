@@ -1,6 +1,10 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { usePage } from '@inertiajs/vue3';
+import { watch } from 'vue';
+import { toast } from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
 
 const props = defineProps({
   ventas: Array,
@@ -12,6 +16,19 @@ const eliminar = (id) => {
     router.delete(route('ventas.destroy', id));
   }
 };
+const page = usePage();
+watch(
+  () => page.props.flash,
+  (flash) => {
+    if (flash.success) {
+      toast.success(flash.success);
+    }
+    if (flash.error) {
+      toast.error(flash.error);
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
