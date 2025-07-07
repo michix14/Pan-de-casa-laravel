@@ -43,8 +43,12 @@ const totalVenta = computed(() => {
 
         <!-- Usuario -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-          <select v-model="form.usuario_id" class="w-full border-gray-300 rounded-lg shadow-sm">
+          <label for="usuario_id" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+          <select 
+            id="usuario_id"
+            name="usuario_id"
+            v-model="form.usuario_id" 
+            class="w-full border-gray-300 rounded-lg shadow-sm">
             <option value="">Seleccione un usuario</option>
             <option v-for="user in usuarios" :key="user.id" :value="user.id">
               {{ user.name }}
@@ -55,8 +59,12 @@ const totalVenta = computed(() => {
 
         <!-- Tipo -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Pedido</label>
-          <select v-model="form.tipo" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring focus:ring-blue-200">
+          <label for="tipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Pedido</label>
+          <select 
+            id="tipo"
+            name="tipo"
+            v-model="form.tipo" 
+            class="w-full border-gray-300 rounded-lg shadow-sm focus:ring focus:ring-blue-200">
             <option value="">Seleccione</option>
             <option value="TIENDA">TIENDA</option>
             <option value="ENVIO">ENVIO</option>
@@ -67,8 +75,12 @@ const totalVenta = computed(() => {
 
         <!-- Estado -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-          <select v-model="form.estado" class="w-full border-gray-300 rounded-lg shadow-sm">
+          <label for="estado" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+          <select 
+            id="estado"
+            name="estado"
+            v-model="form.estado" 
+            class="w-full border-gray-300 rounded-lg shadow-sm">
             <option value="PENDIENTE">PENDIENTE</option>
             <option value="COMPLETADO">COMPLETADO</option>
             <option value="CANCELADO">CANCELADO</option>
@@ -78,15 +90,24 @@ const totalVenta = computed(() => {
 
         <!-- Fecha -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Entrega</label>
-          <input type="date" v-model="form.fecha_entrega" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring focus:ring-blue-200" />
+          <label for="fecha_entrega" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Entrega</label>
+          <input 
+            id="fecha_entrega"
+            name="fecha_entrega"
+            type="date" 
+            v-model="form.fecha_entrega" 
+            class="w-full border-gray-300 rounded-lg shadow-sm focus:ring focus:ring-blue-200" />
           <div v-if="form.errors.fecha_entrega" class="text-red-600 text-sm mt-1">{{ form.errors.fecha_entrega }}</div>
         </div>
 
         <!-- Método de Pago -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
-          <select v-model="form.metodo_pago" class="w-full border-gray-300 rounded-lg shadow-sm">
+          <label for="metodo_pago" class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
+          <select 
+            id="metodo_pago"
+            name="metodo_pago"
+            v-model="form.metodo_pago" 
+            class="w-full border-gray-300 rounded-lg shadow-sm">
             <option value="">Seleccione</option>
             <option value="EFECTIVO">EFECTIVO</option>
             <option value="TARJETA">TARJETA (Stripe)</option>
@@ -100,7 +121,12 @@ const totalVenta = computed(() => {
           <h2 class="text-lg font-semibold mb-2">Productos</h2>
           <div v-for="(p, index) in form.detalles" :key="index" class="grid grid-cols-12 gap-2 mb-3 items-center">
             <div class="col-span-7">
-              <select v-model="p.producto_id" class="w-full border-gray-300 rounded-lg shadow-sm">
+              <label :for="`producto_${index}`" class="sr-only">Producto {{ index + 1 }}</label>
+              <select 
+                :id="`producto_${index}`"
+                :name="`detalles[${index}][producto_id]`"
+                v-model="p.producto_id" 
+                class="w-full border-gray-300 rounded-lg shadow-sm">
                 <option value="">Seleccione un producto</option>
                 <option v-for="producto in productos" :key="producto.id" :value="producto.id">
                   {{ producto.nombre }} - Bs {{ producto.precio }}
@@ -108,7 +134,14 @@ const totalVenta = computed(() => {
               </select>
             </div>
             <div class="col-span-3">
-              <input type="number" v-model="p.cantidad" min="1" class="w-full border-gray-300 rounded-lg shadow-sm" />
+              <label :for="`cantidad_${index}`" class="sr-only">Cantidad {{ index + 1 }}</label>
+              <input 
+                :id="`cantidad_${index}`"
+                :name="`detalles[${index}][cantidad]`"
+                type="number" 
+                v-model="p.cantidad" 
+                min="1" 
+                class="w-full border-gray-300 rounded-lg shadow-sm" />
             </div>
             <div class="col-span-2 text-right">
               <button type="button" @click="eliminarProducto(index)" class="text-red-600 hover:text-red-800 text-sm font-medium">Eliminar</button>

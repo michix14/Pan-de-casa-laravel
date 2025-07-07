@@ -258,6 +258,7 @@ const formatearMoneda = (monto) => {
                   </label>
                   <input
                     id="telefono"
+                    name="telefono"
                     v-model="form.telefono"
                     type="tel"
                     placeholder="7XXXXXXX"
@@ -274,6 +275,7 @@ const formatearMoneda = (monto) => {
                 </label>
                 <input
                   id="ci_nit"
+                  name="ci_nit"
                   v-model="form.ci_nit"
                   type="text"
                   placeholder="Ingresa tu CI o NIT"
