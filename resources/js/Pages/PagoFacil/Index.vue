@@ -3,7 +3,6 @@ import AppLayout                    from '@/Layouts/AppLayout.vue';
 import { ref, computed, onBeforeUnmount } from 'vue';
 import { useForm, router }          from '@inertiajs/vue3';
 import axios                        from 'axios';
-import route                        from 'ziggy-js';      // ← Ziggy
 
 /* ─────────── props ─────────── */
 const props = defineProps({
