@@ -32,7 +32,7 @@ const form = useForm({
 const metodoPagoSeleccionado = computed(() => form.metodo_pago);
 
 const generarPago = async () => {
-  if (!form.venta_id) {
+  if (!form.venta_id || !props.venta) {
     mensajeError.value = 'Debe seleccionar una venta válida';
     return;
   }
@@ -54,18 +54,20 @@ const generarPago = async () => {
     const data = await response.json();
 
     if (data.success) {
-      if (form.metodo_pago === 'qr') {
+      if (form.metodo_pago === 'qr' && data.qr_image) {
         qrGenerado.value = data.qr_image;
         estadoPago.value = 'esperando';
       } else {
         estadoPago.value = 'esperando';
       }
       
-      transactionId.value = data.transaction_id;
-      nroPago.value = data.nro_pago;
+      transactionId.value = data.transaction_id || null;
+      nroPago.value = data.nro_pago || null;
       
       // Iniciar polling para verificar el estado del pago
-      iniciarConsultaEstado();
+      if (transactionId.value) {
+        iniciarConsultaEstado();
+      }
     } else {
       estadoPago.value = 'error';
       mensajeError.value = data.message || 'Error al generar el pago';
@@ -144,6 +146,9 @@ const reiniciarPago = () => {
 };
 
 const formatearMoneda = (monto) => {
+  if (typeof monto !== 'number' || isNaN(monto)) {
+    return 'Bs 0.00';
+  }
   return new Intl.NumberFormat('es-BO', {
     style: 'currency',
     currency: 'BOB'
@@ -187,9 +192,9 @@ const formatearMoneda = (monto) => {
             <div class="border-t pt-3">
               <h3 class="text-sm font-medium text-gray-900 mb-2">Productos:</h3>
               <div class="space-y-1">
-                <div v-for="detalle in venta.detalles" :key="detalle.id" 
+                <div v-for="detalle in venta.detalles || []" :key="detalle.id" 
                      class="flex justify-between text-sm">
-                  <span>{{ detalle.producto.nombre }} x{{ detalle.cantidad }}</span>
+                  <span>{{ detalle.producto?.nombre || 'Producto' }} x{{ detalle.cantidad }}</span>
                   <span>{{ formatearMoneda(detalle.cantidad * detalle.precio_unitario) }}</span>
                 </div>
               </div>
@@ -316,7 +321,7 @@ const formatearMoneda = (monto) => {
             <div v-if="qrGenerado" class="mb-6">
               <h3 class="text-lg font-medium text-gray-900 mb-4">Escanea el código QR</h3>
               <div class="flex justify-center mb-4">
-                <img :src="'data:image/png;base64,' + qrGenerado" alt="Código QR" class="border-2 border-gray-200 rounded-lg">
+                <img :src="qrGenerado" alt="Código QR" class="border-2 border-gray-200 rounded-lg">
               </div>
               <p class="text-sm text-gray-600">Usa tu app bancaria para escanear este código</p>
             </div>
@@ -333,14 +338,14 @@ const formatearMoneda = (monto) => {
             </div>
 
             <!-- Información del pago -->
-            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div v-if="venta" class="bg-gray-50 rounded-lg p-4 mb-6">
               <div class="flex justify-between items-center mb-2">
                 <span class="text-sm text-gray-600">Monto:</span>
                 <span class="font-semibold">{{ formatearMoneda(venta.total) }}</span>
               </div>
               <div class="flex justify-between items-center">
                 <span class="text-sm text-gray-600">Referencia:</span>
-                <span class="font-mono text-sm">{{ nroPago }}</span>
+                <span class="font-mono text-sm">{{ nroPago || 'Generando...' }}</span>
               </div>
             </div>
 
