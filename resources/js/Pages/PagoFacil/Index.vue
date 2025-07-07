@@ -110,6 +110,9 @@ const consultarEstadoPago = async () => {
 
     if (data.success) {
       const estado = data.estado;
+      const estadoTexto = data.estado_texto || '';
+      
+      console.log('Estado del pago:', estado, estadoTexto);
       
       if (estado === 2) { // Pago completado
         estadoPago.value = 'completado';
@@ -119,8 +122,15 @@ const consultarEstadoPago = async () => {
         }, 2000);
       } else if (estado === 3) { // Pago rechazado
         estadoPago.value = 'error';
-        mensajeError.value = 'El pago fue rechazado';
+        mensajeError.value = estadoTexto || 'El pago fue rechazado';
+      } else if (estado === 1) { // Pago pendiente
+        // Continuar esperando
+        console.log('Pago aún pendiente');
+      } else {
+        console.log('Estado desconocido:', estado, estadoTexto);
       }
+    } else {
+      console.error('Error en respuesta de consulta:', data.message);
     }
   } catch (error) {
     console.error('Error al consultar estado:', error);
@@ -373,6 +383,12 @@ const formatearMoneda = (monto) => {
             <div class="flex items-center justify-center space-x-2 text-sm text-gray-600 mb-4">
               <div v-if="consultandoEstado" class="animate-spin w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full"></div>
               <span>{{ consultandoEstado ? 'Verificando pago...' : 'Esperando confirmación de pago' }}</span>
+            </div>
+
+            <!-- Información adicional -->
+            <div class="text-xs text-gray-500 mb-4">
+              <p>• El estado del pago se verifica automáticamente cada 5 segundos</p>
+              <p>• Una vez realizado el pago, la confirmación puede tardar unos segundos</p>
             </div>
 
             <!-- Botón para cancelar -->
