@@ -6,7 +6,8 @@ import { useForm, router } from '@inertiajs/vue3';
 const props = defineProps({
   venta: {
     type: Object,
-    required: true
+    required: false,
+    default: null
   },
   visitas: {
     type: Number,
@@ -23,7 +24,7 @@ const nroPago = ref(null);
 const consultandoEstado = ref(false);
 
 const form = useForm({
-  venta_id: props.venta.id,
+  venta_id: props.venta?.id || null,
   metodo_pago: 'qr',
   telefono: '',
   ci_nit: ''
@@ -42,7 +43,7 @@ const generarPago = async () => {
   mensajeError.value = '';
 
   try {
-    const response = await fetch('/pagofacil/generar-qr', {
+    const response = await fetch(route('pagofacil.generar-qr'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -101,7 +102,7 @@ const consultarEstadoPago = async () => {
   consultandoEstado.value = true;
 
   try {
-    const response = await fetch('/pagofacil/consultar-estado', {
+    const response = await fetch(route('pagofacil.consultar-estado'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -121,7 +122,7 @@ const consultarEstadoPago = async () => {
         estadoPago.value = 'completado';
         // Redirigir a la página de confirmación
         setTimeout(() => {
-          router.visit(`/pagofacil/return?status=success&nro_pago=${nroPago.value}`);
+          router.visit(route('pagofacil.return', { status: 'success', nro_pago: nroPago.value }));
         }, 2000);
       } else if (estado === 3) { // Pago rechazado
         estadoPago.value = 'error';
@@ -142,7 +143,7 @@ const reiniciarPago = () => {
   transactionId.value = null;
   nroPago.value = null;
   form.reset();
-  form.venta_id = props.venta.id;
+  form.venta_id = props.venta?.id || null;
 };
 
 const formatearMoneda = (monto) => {
@@ -178,7 +179,7 @@ const formatearMoneda = (monto) => {
         </div>
 
         <!-- Información de la venta -->
-        <div v-if="venta" class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div v-if="venta && venta.id" class="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Resumen del Pedido</h2>
           <div class="space-y-3">
             <div class="flex justify-between items-center">
@@ -187,7 +188,7 @@ const formatearMoneda = (monto) => {
             </div>
             <div class="flex justify-between items-center">
               <span class="text-sm text-gray-600">Total a Pagar:</span>
-              <span class="text-lg font-bold text-green-600">{{ formatearMoneda(venta.total) }}</span>
+              <span class="text-lg font-bold text-green-600">{{ formatearMoneda(venta.total || 0) }}</span>
             </div>
             <div class="border-t pt-3">
               <h3 class="text-sm font-medium text-gray-900 mb-2">Productos:</h3>
@@ -202,8 +203,33 @@ const formatearMoneda = (monto) => {
           </div>
         </div>
 
+        <!-- Error: No hay venta -->
+        <div v-else class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+              </svg>
+            </div>
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-red-800">Error</h3>
+              <div class="mt-2 text-sm text-red-700">
+                <p>No se pudo cargar la información de la venta. Por favor, intenta nuevamente desde la lista de ventas.</p>
+              </div>
+              <div class="mt-4">
+                <button
+                  @click="router.visit(route('ventas.index'))"
+                  class="bg-red-100 px-3 py-2 rounded-md text-sm font-medium text-red-800 hover:bg-red-200"
+                >
+                  Volver a Ventas
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Formulario de pago -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
+        <div v-if="venta && venta.id" class="bg-white rounded-lg shadow-sm p-6">
           <!-- Estado inicial -->
           <div v-if="estadoPago === 'inicial'">
             <h2 class="text-lg font-semibold text-gray-900 mb-6">Selecciona el método de pago</h2>
@@ -338,7 +364,7 @@ const formatearMoneda = (monto) => {
             </div>
 
             <!-- Información del pago -->
-            <div v-if="venta" class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div v-if="venta && venta.total" class="bg-gray-50 rounded-lg p-4 mb-6">
               <div class="flex justify-between items-center mb-2">
                 <span class="text-sm text-gray-600">Monto:</span>
                 <span class="font-semibold">{{ formatearMoneda(venta.total) }}</span>
