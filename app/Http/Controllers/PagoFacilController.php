@@ -32,7 +32,7 @@ class PagoFacilController extends Controller
         $venta = null;
         
         if ($ventaId) {
-            $venta = Venta::with(['detalleVentas.producto', 'pedido'])->findOrFail($ventaId);
+            $venta = Venta::with(['detalles.producto', 'pedido'])->findOrFail($ventaId);
         }
 
         return Inertia::render('PagoFacil/Index', [
@@ -239,7 +239,7 @@ class PagoFacilController extends Controller
     {
         $detalles = [];
         
-        foreach ($venta->detalleVentas as $detalle) {
+        foreach ($venta->detalles as $detalle) {
             $detalles[] = [
                 'Serial' => $detalle->id,
                 'Producto' => $detalle->producto->nombre,
