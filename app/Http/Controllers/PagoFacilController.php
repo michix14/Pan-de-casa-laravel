@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Models\Venta;
 use App\Models\Pago;
+use App\Models\Pedido;
 use Inertia\Inertia;
 use GuzzleHttp\Client;
 
@@ -262,6 +263,9 @@ class PagoFacilController extends Controller
                     'datos_pago' => json_encode($result['values'])
                 ]);
 
+                // Actualizar el estado del pedido a COMPLETADO
+                $this->actualizarEstadoPedido($pago);
+
                 Log::info('Pago actualizado como completado', [
                     'pago_id' => $pago->id,
                     'transaction_id' => $transactionId,
@@ -444,14 +448,25 @@ class PagoFacilController extends Controller
                 ])
             ]);
 
+            // Si el pago fue completado, actualizar también el estado del pedido
+            if ($estadoInterno === 'completado') {
+                $this->actualizarEstadoPedido($pago);
+            }
+
             Log::info('Pago actualizado exitosamente desde callback', [
                 'pago_id' => $pago->id,
                 'pedido_id' => $pedidoId,
                 'estado_anterior' => $pago->getOriginal('estado'),
                 'estado_nuevo' => $estadoInterno,
                 'metodo_pago' => $metodoPago,
-                'fecha_pago' => $fecha . ' ' . $hora
+                'fecha_pago' => $fecha . ' ' . $hora,
+                'pedido_actualizado' => $estadoInterno === 'completado' ? 'SI' : 'NO'
             ]);
+
+            // Si el pago fue completado, actualizar también el estado del pedido
+            if ($estadoInterno === 'completado') {
+                $this->actualizarEstadoPedido($pago);
+            }
 
             // Respuesta exitosa según especificación de PagoFácil
             return response()->json([
@@ -666,6 +681,9 @@ class PagoFacilController extends Controller
                                     'datos_pago' => json_encode($estadoPagoFacil)
                                 ]);
                                 
+                                // Actualizar el estado del pedido a COMPLETADO
+                                $this->actualizarEstadoPedido($pago);
+                                
                                 Log::info('Pago actualizado como completado desde obtenerEstadoPago', [
                                     'pago_id' => $pago->id,
                                     'referencia' => $referencia,
@@ -713,6 +731,56 @@ class PagoFacilController extends Controller
                 'success' => false,
                 'message' => 'Error interno del servidor'
             ], 500);
+        }
+    }
+
+    /**
+     * Actualizar el estado del pedido cuando se completa un pago
+     */
+    private function actualizarEstadoPedido($pago)
+    {
+        try {
+            // Buscar la venta asociada al pago
+            $venta = Venta::with('pedido')->find($pago->venta_id);
+            
+            if (!$venta || !$venta->pedido) {
+                Log::warning('No se encontró venta o pedido asociado al pago', [
+                    'pago_id' => $pago->id,
+                    'venta_id' => $pago->venta_id
+                ]);
+                return false;
+            }
+
+            // Verificar si el pedido ya está completado
+            if ($venta->pedido->estado === 'COMPLETADO') {
+                Log::info('Pedido ya está marcado como COMPLETADO', [
+                    'pedido_id' => $venta->pedido->id,
+                    'pago_id' => $pago->id
+                ]);
+                return true;
+            }
+
+            // Actualizar el estado del pedido a COMPLETADO
+            $venta->pedido->update(['estado' => 'COMPLETADO']);
+            
+            Log::info('Pedido actualizado como COMPLETADO', [
+                'pedido_id' => $venta->pedido->id,
+                'venta_id' => $venta->id,
+                'pago_id' => $pago->id,
+                'estado_anterior' => $venta->pedido->getOriginal('estado'),
+                'estado_nuevo' => 'COMPLETADO'
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('Error al actualizar estado del pedido', [
+                'pago_id' => $pago->id,
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+            return false;
         }
     }
 }
