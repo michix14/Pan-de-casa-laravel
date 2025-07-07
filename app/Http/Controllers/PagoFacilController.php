@@ -549,4 +549,89 @@ class PagoFacilController extends Controller
             'pagos_completados' => Pago::where('estado', 'completado')->count(),
         ]);
     }
+
+    /**
+     * Obtener estado de un pago por su referencia externa
+     */
+    public function obtenerEstadoPago(Request $request)
+    {
+        try {
+            $referencia = $request->input('referencia');
+            
+            if (!$referencia) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Referencia es requerida'
+                ], 400);
+            }
+
+            // Buscar el pago por referencia externa
+            $pago = Pago::where('referencia_externa', $referencia)->first();
+
+            if (!$pago) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Pago no encontrado'
+                ], 404);
+            }
+
+            // Si hay transaction_id, consultar también el estado en PagoFácil
+            $estadoPagoFacil = null;
+            if ($pago->transaction_id) {
+                try {
+                    $tokenResponse = $this->obtenerToken();
+                    $accessToken = $tokenResponse['values'] ?? null;
+
+                    if ($accessToken) {
+                        $client = new Client();
+                        $response = $client->post(config('pagofacil.base_url') . '/api/servicio/consultartransaccion', [
+                            'headers' => [
+                                'Accept' => 'application/json',
+                                'Authorization' => 'Bearer ' . $accessToken
+                            ],
+                            'json' => [
+                                'TransaccionDePago' => $pago->transaction_id
+                            ]
+                        ]);
+
+                        $result = json_decode($response->getBody()->getContents(), true);
+                        $estadoPagoFacil = $result['values'] ?? null;
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Error consultando estado en PagoFácil', [
+                        'transaction_id' => $pago->transaction_id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'pago' => [
+                    'id' => $pago->id,
+                    'venta_id' => $pago->venta_id,
+                    'referencia_externa' => $pago->referencia_externa,
+                    'transaction_id' => $pago->transaction_id,
+                    'estado' => $pago->estado,
+                    'monto' => $pago->monto,
+                    'fecha' => $pago->fecha,
+                    'fecha_pago' => $pago->fecha_pago,
+                    'metodo_pago' => $pago->metodo_pago
+                ],
+                'estado_pagofacil' => $estadoPagoFacil
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error obteniendo estado de pago', [
+                'referencia' => $request->input('referencia'),
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error interno del servidor'
+            ], 500);
+        }
+    }
 }

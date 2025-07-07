@@ -102,6 +102,8 @@ Route::middleware([
     Route::get('/pagofacil/test-callback', [PagoFacilController::class, 'testCallback'])->name('pagofacil.test-callback');
     // Debug de pagos (solo en desarrollo)
     Route::get('/pagofacil/debug-pagos', [PagoFacilController::class, 'debugPagos'])->name('pagofacil.debug-pagos');
+    // Obtener estado de pago por referencia
+    Route::post('/pagofacil/obtener-estado-pago', [PagoFacilController::class, 'obtenerEstadoPago'])->name('pagofacil.obtener-estado-pago');
 });
 
 // Callback público para Pago Fácil (sin middleware de autenticación)
