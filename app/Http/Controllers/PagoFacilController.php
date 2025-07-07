@@ -190,27 +190,98 @@ class PagoFacilController extends Controller
         try {
             $transactionId = $request->input('transaction_id');
             
+            if (!$transactionId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Transaction ID es requerido'
+                ], 400);
+            }
+
+            // Obtener token de autenticación
+            $tokenResponse = $this->obtenerToken();
+            $accessToken = $tokenResponse['values'] ?? null;
+
+            if (!$accessToken) {
+                Log::error('No se pudo obtener el token de PagoFácil para consultar estado');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error de autenticación con PagoFácil'
+                ], 500);
+            }
+
             $client = new Client();
 
+            // Realizar consulta del estado
             $response = $client->post(config('pagofacil.base_url') . '/api/servicio/consultartransaccion', [
                 'headers' => [
-                    'Accept' => 'application/json'
+                    'Accept' => 'application/json',
+                    'Authorization' => 'Bearer ' . $accessToken
                 ],
                 'json' => [
-                    "TransaccionDePago" => $transactionId
+                    'TransaccionDePago' => $transactionId
                 ]
             ]);
 
             $result = json_decode($response->getBody()->getContents(), true);
             
+            Log::info('Respuesta de consulta de estado', [
+                'transaction_id' => $transactionId,
+                'response' => $result
+            ]);
+
+            // Verificar la estructura de la respuesta
+            if (!isset($result['values'])) {
+                Log::error('Respuesta inesperada de PagoFácil', ['result' => $result]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Respuesta inesperada del servicio'
+                ], 500);
+            }
+
+            $estado = $result['values']['messageEstado'] ?? 0;
+            $estadoTexto = $result['values']['messageEstadoDescription'] ?? '';
+
+            // Buscar el pago en nuestra base de datos
+            $pago = Pago::where('transaction_id', $transactionId)->first();
+
+            if ($pago && $estado == 2) { // Estado 2 = Pago completado
+                // Actualizar el estado del pago en nuestra base de datos
+                $pago->update([
+                    'estado' => 'completado',
+                    'fecha_pago' => now(),
+                    'datos_pago' => json_encode($result['values'])
+                ]);
+
+                Log::info('Pago actualizado como completado', [
+                    'pago_id' => $pago->id,
+                    'transaction_id' => $transactionId
+                ]);
+            } elseif ($pago && $estado == 3) { // Estado 3 = Pago rechazado
+                $pago->update([
+                    'estado' => 'rechazado',
+                    'datos_pago' => json_encode($result['values'])
+                ]);
+
+                Log::info('Pago marcado como rechazado', [
+                    'pago_id' => $pago->id,
+                    'transaction_id' => $transactionId
+                ]);
+            }
+            
             return response()->json([
                 'success' => true,
-                'estado' => $result['values']['messageEstado'] ?? 0,
+                'estado' => $estado,
+                'estado_texto' => $estadoTexto,
                 'data' => $result['values'] ?? []
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error al consultar estado de pago: ' . $e->getMessage());
+            Log::error('Error al consultar estado de pago', [
+                'transaction_id' => $request->input('transaction_id'),
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Error interno del servidor'
