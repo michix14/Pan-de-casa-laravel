@@ -291,45 +291,140 @@ class PagoFacilController extends Controller
 
     /**
      * Callback para notificaciones de Pago Fácil
+     * Recibe notificaciones cuando se completa un pago
+     * 
+     * Estructura de datos recibidos de PagoFácil:
+     * {
+     *   "PedidoID": "El Id de identificación del pedido (ej: venta-9-1751920294)",
+     *   "Fecha": "Fecha de realización del pago",
+     *   "Hora": "Hora del pago",
+     *   "MetodoPago": "Medio por el que se realizo el pago",
+     *   "Estado": "Estado del pago"
+     * }
      */
     public function callback(Request $request)
     {
         try {
             Log::info('Callback recibido de Pago Fácil', ['data' => $request->all()]);
 
-            // Procesar la notificación
-            $nroPago = $request->input('nro_pago');
-            $estado = $request->input('estado');
-            $transactionId = $request->input('transaction_id');
+            // Validar que se recibieron todos los datos necesarios
+            $pedidoId = $request->input('PedidoID'); // Formato: "venta-9-1751920294"
+            $fecha = $request->input('Fecha');
+            $hora = $request->input('Hora');
+            $metodoPago = $request->input('MetodoPago');
+            $estado = $request->input('Estado');
 
-            if ($nroPago && $estado == 'completado') {
-                $pago = Pago::where('referencia_externa', $nroPago)->first();
+            if (!$pedidoId) {
+                Log::error('Callback sin PedidoID', ['data' => $request->all()]);
+                return response()->json([
+                    'error' => 1,
+                    'estatus' => 0,
+                    'message' => "PedidoID es requerido",
+                    'values' => false
+                ]);
+            }
+
+            Log::info('Buscando pago con referencia externa', ['pedido_id' => $pedidoId]);
+
+            // Buscar el pago en nuestra base de datos usando la referencia externa
+            $pago = Pago::where('referencia_externa', $pedidoId)->first();
+
+            if (!$pago) {
+                // Buscar todos los pagos para debugging
+                $todosPagos = Pago::select('id', 'referencia_externa', 'venta_id', 'estado')->get();
                 
-                if ($pago) {
-                    $pago->update([
-                        'estado' => 'completado',
-                        'fecha_pago' => now(),
-                        'datos_pago' => json_encode($request->all())
-                    ]);
+                Log::error('Pago no encontrado en base de datos', [
+                    'pedido_id_buscado' => $pedidoId,
+                    'callback_data' => $request->all(),
+                    'pagos_existentes' => $todosPagos->toArray()
+                ]);
 
-                    Log::info('Pago actualizado como completado', ['pago_id' => $pago->id]);
+                // Intentar extraer el ID de venta del PedidoID (formato: venta-{id}-{timestamp})
+                if (preg_match('/^venta-(\d+)-\d+$/', $pedidoId, $matches)) {
+                    $ventaId = $matches[1];
+                    Log::info('ID de venta extraído del PedidoID', ['venta_id' => $ventaId]);
+                    
+                    // Buscar cualquier pago de esta venta que esté pendiente
+                    $pagoAlternativo = Pago::where('venta_id', $ventaId)
+                                          ->where('estado', 'pendiente')
+                                          ->orderBy('id', 'desc')
+                                          ->first();
+                    
+                    if ($pagoAlternativo) {
+                        Log::warning('Pago encontrado con método alternativo', [
+                            'pago_id' => $pagoAlternativo->id,
+                            'referencia_original' => $pagoAlternativo->referencia_externa,
+                            'referencia_callback' => $pedidoId
+                        ]);
+                        $pago = $pagoAlternativo;
+                        
+                        // Actualizar la referencia externa para que coincida
+                        $pago->update(['referencia_externa' => $pedidoId]);
+                    }
+                }
+                
+                if (!$pago) {
+                    return response()->json([
+                        'error' => 1,
+                        'estatus' => 0,
+                        'message' => "Pago no encontrado en el sistema",
+                        'values' => false
+                    ]);
                 }
             }
 
+            // Procesar según el estado del pago
+            $estadoInterno = 'pendiente';
+            if (strtolower($estado) === 'completado' || strtolower($estado) === 'pagado' || $estado === '2') {
+                $estadoInterno = 'completado';
+            } elseif (strtolower($estado) === 'rechazado' || strtolower($estado) === 'cancelado' || $estado === '3') {
+                $estadoInterno = 'rechazado';
+            }
+
+            // Actualizar el pago en nuestra base de datos
+            $pago->update([
+                'estado' => $estadoInterno,
+                'fecha_pago' => now(),
+                'metodo_pago' => 'PAGO_FACIL_' . strtoupper($metodoPago ?? 'QR'),
+                'datos_pago' => json_encode([
+                    'callback_data' => $request->all(),
+                    'fecha_callback' => now(),
+                    'metodo_pago_pagofacil' => $metodoPago,
+                    'fecha_pago_pagofacil' => $fecha,
+                    'hora_pago_pagofacil' => $hora
+                ])
+            ]);
+
+            Log::info('Pago actualizado exitosamente desde callback', [
+                'pago_id' => $pago->id,
+                'pedido_id' => $pedidoId,
+                'estado_anterior' => $pago->getOriginal('estado'),
+                'estado_nuevo' => $estadoInterno,
+                'metodo_pago' => $metodoPago,
+                'fecha_pago' => $fecha . ' ' . $hora
+            ]);
+
+            // Respuesta exitosa según especificación de PagoFácil
             return response()->json([
                 'error' => 0,
-                'status' => 1,
-                'message' => "Pago procesado correctamente.",
+                'estatus' => 1,
+                'message' => "Pago procesado correctamente",
                 'values' => true
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error en callback: ' . $e->getMessage());
+            Log::error('Error en callback de PagoFácil', [
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'data' => $request->all()
+            ]);
+
+            // Respuesta de error según especificación de PagoFácil
             return response()->json([
                 'error' => 1,
-                'status' => 1,
-                'messageSistema' => "[TRY/CATCH] " . $e->getMessage(),
-                'message' => "No se pudo procesar el pago, por favor intente de nuevo.",
+                'estatus' => 0,
+                'message' => "No se pudo procesar el pago, por favor intente de nuevo",
                 'values' => false
             ]);
         }
@@ -416,5 +511,42 @@ class PagoFacilController extends Controller
         }
 
         return $detalles;
+    }
+
+    /**
+     * Página de prueba para el callback (solo para desarrollo)
+     */
+    public function testCallback()
+    {
+        return Inertia::render('PagoFacil/CallbackTest');
+    }
+
+    /**
+     * Método de debugging para ver los pagos en la base de datos
+     */
+    public function debugPagos(Request $request)
+    {
+        $pagos = Pago::with('venta')
+                    ->select('id', 'venta_id', 'referencia_externa', 'transaction_id', 'estado', 'monto', 'fecha')
+                    ->orderBy('id', 'desc')
+                    ->limit(20)
+                    ->get();
+
+        return response()->json([
+            'pagos' => $pagos->map(function ($pago) {
+                return [
+                    'id' => $pago->id,
+                    'venta_id' => $pago->venta_id,
+                    'referencia_externa' => $pago->referencia_externa,
+                    'transaction_id' => $pago->transaction_id,
+                    'estado' => $pago->estado,
+                    'monto' => $pago->monto,
+                    'fecha' => $pago->fecha,
+                ];
+            }),
+            'total_pagos' => Pago::count(),
+            'pagos_pendientes' => Pago::where('estado', 'pendiente')->count(),
+            'pagos_completados' => Pago::where('estado', 'completado')->count(),
+        ]);
     }
 }

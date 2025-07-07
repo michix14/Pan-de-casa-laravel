@@ -98,6 +98,10 @@ Route::middleware([
     Route::post('/pagofacil/generar-qr', [PagoFacilController::class, 'generarQR'])->name('pagofacil.generar-qr');
     Route::post('/pagofacil/consultar-estado', [PagoFacilController::class, 'consultarEstado'])->name('pagofacil.consultar-estado');
     Route::get('/pagofacil/return', [PagoFacilController::class, 'return'])->name('pagofacil.return');
+    // Página de prueba del callback (solo en desarrollo)
+    Route::get('/pagofacil/test-callback', [PagoFacilController::class, 'testCallback'])->name('pagofacil.test-callback');
+    // Debug de pagos (solo en desarrollo)
+    Route::get('/pagofacil/debug-pagos', [PagoFacilController::class, 'debugPagos'])->name('pagofacil.debug-pagos');
 });
 
 // Callback público para Pago Fácil (sin middleware de autenticación)

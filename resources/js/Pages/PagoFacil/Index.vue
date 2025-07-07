@@ -84,9 +84,19 @@ const generarPago = async () => {
 };
 
 const iniciarConsultaEstado = () => {
+  let intentos = 0;
+  const maxIntentos = 120; // 10 minutos con intervalos de 5 segundos
+  
   const interval = setInterval(async () => {
-    if (!transactionId.value || estadoPago.value === 'completado') {
+    intentos++;
+    
+    if (!transactionId.value || estadoPago.value === 'completado' || intentos >= maxIntentos) {
       clearInterval(interval);
+      
+      if (intentos >= maxIntentos && estadoPago.value !== 'completado') {
+        console.log('Tiempo máximo de consulta alcanzado');
+        // Opcionalmente mostrar un mensaje al usuario
+      }
       return;
     }
 
@@ -380,9 +390,18 @@ const formatearMoneda = (monto) => {
             </div>
 
             <!-- Estado de verificación -->
-            <div class="flex items-center justify-center space-x-2 text-sm text-gray-600 mb-4">
-              <div v-if="consultandoEstado" class="animate-spin w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full"></div>
-              <span>{{ consultandoEstado ? 'Verificando pago...' : 'Esperando confirmación de pago' }}</span>
+            <div class="bg-blue-50 rounded-lg p-4 mb-4">
+              <div class="flex items-center justify-center space-x-2 text-sm text-blue-700 mb-2">
+                <div v-if="consultandoEstado" class="animate-spin w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full"></div>
+                <div v-else class="w-4 h-4 bg-blue-500 rounded-full animate-pulse"></div>
+                <span class="font-medium">{{ consultandoEstado ? 'Verificando pago...' : 'Esperando confirmación de pago' }}</span>
+              </div>
+              
+              <div class="text-center text-xs text-blue-600">
+                <p>✓ Pago generado exitosamente</p>
+                <p>⏳ Esperando confirmación del banco</p>
+                <p class="mt-1 text-blue-500">La verificación se realiza automáticamente cada 5 segundos</p>
+              </div>
             </div>
 
             <!-- Información adicional -->

@@ -12,6 +12,6 @@ class VerifyCsrfToken extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        //
+        'pagofacil/callback', // Excluir callback de PagoFácil del CSRF
     ];
 }
