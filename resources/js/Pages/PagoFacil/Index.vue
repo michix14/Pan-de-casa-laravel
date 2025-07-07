@@ -123,26 +123,60 @@ const consultarEstadoPago = async () => {
     if (data.success) {
       const estado = data.estado;
       const estadoTexto = data.estado_texto || '';
+      const datosCompletos = data.data || {};
       
       console.log('Estado del pago:', estado, estadoTexto);
+      console.log('Datos completos de PagoFácil:', datosCompletos);
       
-      if (estado === 2) { // Pago completado
+      // Verificar si HoraPago existe y no es null
+      const horaPago = datosCompletos.HoraPago;
+      const fechaPago = datosCompletos.FechaPago;
+      const messageEstado = datosCompletos.messageEstado || estadoTexto;
+      
+      console.log('HoraPago:', horaPago, 'FechaPago:', fechaPago);
+      console.log('messageEstado:', messageEstado);
+      
+      // Verificar si el pago está completado:
+      // 1. HoraPago y FechaPago no son null
+      // 2. O messageEstado contiene específicamente "PROCESADO"
+      const tieneHoraYFecha = horaPago && horaPago !== null && fechaPago && fechaPago !== null;
+      const estadoProcesado = messageEstado && (
+        messageEstado.includes('PROCESADO') || 
+        messageEstado.includes('COMPLETADO - PROCESADO')
+      );
+      
+      if (tieneHoraYFecha || estadoProcesado) {
+        // El pago está completado
+        console.log('Pago completado detectado:', {
+          tieneHoraYFecha,
+          estadoProcesado,
+          horaPago,
+          fechaPago,
+          messageEstado
+        });
+        
         estadoPago.value = 'completado';
-        // Mostrar notificación de éxito
         mostrarNotificacion('¡Pago completado exitosamente!', 'success');
-        // Redirigir a la página de confirmación
         setTimeout(() => {
           router.visit(route('pagofacil.return', { status: 'success', nro_pago: nroPago.value }));
         }, 2000);
       } else if (estado === 3) { // Pago rechazado
         estadoPago.value = 'error';
-        mensajeError.value = estadoTexto || 'El pago fue rechazado';
+        mensajeError.value = messageEstado || 'El pago fue rechazado';
         mostrarNotificacion('El pago fue rechazado', 'error');
-      } else if (estado === 1) { // Pago pendiente
-        // Continuar esperando
-        console.log('Pago aún pendiente');
       } else {
-        console.log('Estado desconocido:', estado, estadoTexto);
+        // Pago aún pendiente
+        console.log('Pago aún pendiente:', {
+          horaPago,
+          fechaPago,
+          messageEstado,
+          estado
+        });
+        
+        // Verificar si hay información adicional en el mensaje de estado
+        if (messageEstado && messageEstado.includes('COMPLETADO')) {
+          console.log('Mensaje indica completado pero sin procesar completamente - verificando...');
+        }
       }
     } else {
       console.error('Error en respuesta de consulta:', data.message);
@@ -196,8 +230,44 @@ const verificarPagoManual = async () => {
       const estadoPagoFacil = response.data.estado_pagofacil;
 
       console.log('Estado del pago verificado:', pago);
+      console.log('Estado en PagoFácil:', estadoPagoFacil);
       
+      // Verificar tanto el estado en nuestra DB como en PagoFácil
+      let pagoCompletado = false;
+      
+      // Primero verificar nuestro estado local
       if (pago.estado === 'completado') {
+        pagoCompletado = true;
+      }
+      
+      // Si no está completado localmente, verificar con PagoFácil
+      if (!pagoCompletado && estadoPagoFacil) {
+        const horaPago = estadoPagoFacil.HoraPago;
+        const fechaPago = estadoPagoFacil.FechaPago;
+        const messageEstado = estadoPagoFacil.messageEstado;
+        
+        console.log('Verificando HoraPago:', horaPago, 'FechaPago:', fechaPago, 'MessageEstado:', messageEstado);
+        
+        // Verificar múltiples criterios para determinar si está completado
+        const tieneHoraYFecha = horaPago && horaPago !== null && fechaPago && fechaPago !== null;
+        const estadoProcesado = messageEstado && (
+          messageEstado.includes('PROCESADO') || 
+          messageEstado.includes('COMPLETADO - PROCESADO')
+        );
+        
+        if (tieneHoraYFecha || estadoProcesado) {
+          pagoCompletado = true;
+          console.log('Pago completado según PagoFácil:', {
+            tieneHoraYFecha,
+            estadoProcesado,
+            horaPago,
+            fechaPago,
+            messageEstado
+          });
+        }
+      }
+      
+      if (pagoCompletado) {
         estadoPago.value = 'completado';
         mostrarNotificacion('¡Pago completado exitosamente!', 'success');
         setTimeout(() => {
@@ -208,12 +278,19 @@ const verificarPagoManual = async () => {
         mensajeError.value = 'El pago fue rechazado';
         mostrarNotificacion('El pago fue rechazado', 'error');
       } else {
-        mostrarNotificacion('El pago aún está pendiente', 'info');
-      }
-
-      // Si hay información de PagoFácil, mostrarla en consola
-      if (estadoPagoFacil) {
-        console.log('Estado en PagoFácil:', estadoPagoFacil);
+        // Mostrar información más detallada del estado
+        let mensaje = 'El pago aún está pendiente';
+        if (estadoPagoFacil && estadoPagoFacil.messageEstado) {
+          mensaje += ` - ${estadoPagoFacil.messageEstado}`;
+        }
+        mostrarNotificacion(mensaje, 'info');
+        
+        console.log('Pago pendiente. Detalles:', {
+          estadoLocal: pago.estado,
+          horaPago: estadoPagoFacil?.HoraPago,
+          fechaPago: estadoPagoFacil?.FechaPago,
+          messageEstado: estadoPagoFacil?.messageEstado
+        });
       }
     } else {
       console.error('Error verificando pago:', response.data.message);
@@ -630,6 +707,9 @@ const cerrarNotificacion = () => {
                 <p>✓ Pago generado exitosamente</p>
                 <p>⏳ Esperando confirmación del banco</p>
                 <p class="mt-1 text-blue-500">La verificación se realiza automáticamente cada 5 segundos</p>
+                <p class="mt-1 text-blue-400">
+                  <strong>Estado:</strong> Esperando HoraPago y FechaPago de PagoFácil
+                </p>
               </div>
 
               <!-- Botón de verificación manual -->
@@ -654,6 +734,7 @@ const cerrarNotificacion = () => {
             <!-- Información adicional -->
             <div class="text-xs text-gray-500 mb-4">
               <p>• El estado del pago se verifica automáticamente cada 5 segundos</p>
+              <p>• El pago se considera completado cuando PagoFácil devuelve HoraPago y FechaPago</p>
               <p>• Una vez realizado el pago, la confirmación puede tardar unos segundos</p>
               <p>• Puedes verificar manualmente el estado con el botón de arriba</p>
             </div>

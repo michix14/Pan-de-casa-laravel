@@ -240,12 +240,22 @@ class PagoFacilController extends Controller
 
             $estado = $result['values']['messageEstado'] ?? 0;
             $estadoTexto = $result['values']['messageEstadoDescription'] ?? '';
+            $horaPago = $result['values']['HoraPago'] ?? null;
+            $fechaPago = $result['values']['FechaPago'] ?? null;
 
             // Buscar el pago en nuestra base de datos
             $pago = Pago::where('transaction_id', $transactionId)->first();
 
-            if ($pago && $estado == 2) { // Estado 2 = Pago completado
-                // Actualizar el estado del pago en nuestra base de datos
+            // Determinar si el pago está completado basado en múltiples criterios
+            $tieneHoraYFecha = ($horaPago !== null && $fechaPago !== null);
+            $estadoProcesado = $estadoTexto && (
+                str_contains($estadoTexto, 'PROCESADO') || 
+                str_contains($estadoTexto, 'COMPLETADO - PROCESADO')
+            );
+            $pagoCompletado = $tieneHoraYFecha || $estadoProcesado;
+
+            if ($pago && $pagoCompletado) { 
+                // Pago completado (tiene hora y fecha de pago, o estado indica procesado)
                 $pago->update([
                     'estado' => 'completado',
                     'fecha_pago' => now(),
@@ -254,9 +264,15 @@ class PagoFacilController extends Controller
 
                 Log::info('Pago actualizado como completado', [
                     'pago_id' => $pago->id,
-                    'transaction_id' => $transactionId
+                    'transaction_id' => $transactionId,
+                    'tiene_hora_y_fecha' => $tieneHoraYFecha,
+                    'estado_procesado' => $estadoProcesado,
+                    'hora_pago' => $horaPago,
+                    'fecha_pago' => $fechaPago,
+                    'estado_texto' => $estadoTexto
                 ]);
-            } elseif ($pago && $estado == 3) { // Estado 3 = Pago rechazado
+            } elseif ($pago && $estado == 3) { 
+                // Estado 3 = Pago rechazado
                 $pago->update([
                     'estado' => 'rechazado',
                     'datos_pago' => json_encode($result['values'])
@@ -266,12 +282,28 @@ class PagoFacilController extends Controller
                     'pago_id' => $pago->id,
                     'transaction_id' => $transactionId
                 ]);
+            } elseif ($pago) {
+                // Actualizar los datos aunque esté pendiente
+                $pago->update([
+                    'datos_pago' => json_encode($result['values'])
+                ]);
+                
+                Log::info('Pago aún pendiente, datos actualizados', [
+                    'pago_id' => $pago->id,
+                    'transaction_id' => $transactionId,
+                    'hora_pago' => $horaPago,
+                    'fecha_pago' => $fechaPago,
+                    'estado_actual' => $estado
+                ]);
             }
             
             return response()->json([
                 'success' => true,
                 'estado' => $estado,
                 'estado_texto' => $estadoTexto,
+                'pago_completado' => $pagoCompletado,
+                'hora_pago' => $horaPago,
+                'fecha_pago' => $fechaPago,
                 'data' => $result['values'] ?? []
             ]);
 
@@ -375,10 +407,27 @@ class PagoFacilController extends Controller
 
             // Procesar según el estado del pago
             $estadoInterno = 'pendiente';
-            if (strtolower($estado) === 'completado' || strtolower($estado) === 'pagado' || $estado === '2') {
+            
+            // La lógica principal es verificar si el estado indica "completado" 
+            // o si es un estado numérico específico, o si contiene "PROCESADO"
+            $estadoLower = strtolower($estado);
+            if ($estadoLower === 'completado' || 
+                $estadoLower === 'pagado' || 
+                $estado === '2' ||
+                str_contains($estadoLower, 'procesado') ||
+                str_contains($estadoLower, 'completado - procesado')) {
                 $estadoInterno = 'completado';
-            } elseif (strtolower($estado) === 'rechazado' || strtolower($estado) === 'cancelado' || $estado === '3') {
+            } elseif ($estadoLower === 'rechazado' || 
+                     $estadoLower === 'cancelado' || 
+                     $estado === '3') {
                 $estadoInterno = 'rechazado';
+            } else {
+                // Para otros casos, mantener como pendiente
+                // El callback de PagoFácil normalmente solo se envía cuando hay un cambio de estado significativo
+                Log::info('Estado no reconocido en callback, manteniendo como pendiente', [
+                    'estado_recibido' => $estado,
+                    'pedido_id' => $pedidoId
+                ]);
             }
 
             // Actualizar el pago en nuestra base de datos
@@ -596,6 +645,38 @@ class PagoFacilController extends Controller
 
                         $result = json_decode($response->getBody()->getContents(), true);
                         $estadoPagoFacil = $result['values'] ?? null;
+                        
+                        // Si obtenemos el estado de PagoFácil, verificar si debemos actualizar nuestro registro
+                        if ($estadoPagoFacil && $pago->estado !== 'completado') {
+                            $horaPago = $estadoPagoFacil['HoraPago'] ?? null;
+                            $fechaPago = $estadoPagoFacil['FechaPago'] ?? null;
+                            $messageEstado = $estadoPagoFacil['messageEstadoDescription'] ?? '';
+                            
+                            // Verificar si el pago está completado según múltiples criterios
+                            $tieneHoraYFecha = ($horaPago !== null && $fechaPago !== null);
+                            $estadoProcesado = $messageEstado && (
+                                str_contains($messageEstado, 'PROCESADO') || 
+                                str_contains($messageEstado, 'COMPLETADO - PROCESADO')
+                            );
+                            
+                            if ($tieneHoraYFecha || $estadoProcesado) {
+                                $pago->update([
+                                    'estado' => 'completado',
+                                    'fecha_pago' => now(),
+                                    'datos_pago' => json_encode($estadoPagoFacil)
+                                ]);
+                                
+                                Log::info('Pago actualizado como completado desde obtenerEstadoPago', [
+                                    'pago_id' => $pago->id,
+                                    'referencia' => $referencia,
+                                    'tiene_hora_y_fecha' => $tieneHoraYFecha,
+                                    'estado_procesado' => $estadoProcesado,
+                                    'hora_pago' => $horaPago,
+                                    'fecha_pago' => $fechaPago,
+                                    'message_estado' => $messageEstado
+                                ]);
+                            }
+                        }
                     }
                 } catch (\Exception $e) {
                     Log::warning('Error consultando estado en PagoFácil', [
