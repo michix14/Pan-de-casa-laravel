@@ -90,6 +90,7 @@ const totalVenta = computed(() => {
             <option value="">Seleccione</option>
             <option value="EFECTIVO">EFECTIVO</option>
             <option value="TARJETA">TARJETA (Stripe)</option>
+            <option value="PAGO_FACIL">PAGO FÁCIL</option>
           </select>
           <div v-if="form.errors.metodo_pago" class="text-red-600 text-sm mt-1">{{ form.errors.metodo_pago }}</div>
         </div>

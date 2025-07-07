@@ -10,29 +10,13 @@ const props = defineProps({
 const imagePreview = ref(null);
 const fileInputRef = ref(null);
 
-// Configuramos useForm con transform para construir manualmente FormData y enviar todos los campos
+// Configuramos useForm sin transform personalizado para simplificar
 const form = useForm({
     nombre: props.producto?.nombre ?? '',
     descripcion: props.producto?.descripcion ?? '',
     precio: props.producto?.precio ?? '',
     stock: props.producto?.stock ?? '',
     imagen_url: null, // archivo de imagen o null
-}, {
-    transform(data) {
-        const formData = new FormData();
-
-        for (const key in data) {
-            if (data[key] !== null && data[key] !== undefined) {
-                if (key === 'imagen_url' && data[key] instanceof File) {
-                    formData.append(key, data[key]);
-                } else if (key !== 'imagen_url') {
-                    formData.append(key, data[key]);
-                }
-            }
-        }
-
-        return formData;
-    }
 });
 
 const handleImageChange = (e) => {
@@ -60,9 +44,17 @@ const removeImage = () => {
 const submit = () => {
     const options = {
         preserveScroll: true,
+        onSuccess: () => {
+            // Limpiar preview si es creación exitosa
+            if (!props.isEdit) {
+                imagePreview.value = null;
+                form.reset();
+            }
+        }
     };
 
     if (props.isEdit) {
+        // Para edición, usar put
         form.put(route('productos.update', props.producto.id), options);
     } else {
         form.post(route('productos.store'), options);

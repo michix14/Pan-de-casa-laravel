@@ -20,6 +20,7 @@
     },
     "dependencies": {
         "chart.js": "^4.5.0",
+        "daisyui": "^5.0.46",
         "vue3-toastify": "^0.2.8"
     }
 }

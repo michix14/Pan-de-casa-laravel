@@ -12,6 +12,7 @@ use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\BusquedaGlobalController;
+use App\Http\Controllers\PagoFacilController;
 
 
 /*
@@ -57,10 +58,14 @@ Route::middleware([
 
 });
 
-Route::resource('productos', ProductoController::class)->middleware([
-    'auth', // si tienes auth
-    \App\Http\Middleware\VisitasMiddleware::class, // tu middleware
-]);
+// routes/web.php
+Route::resource('productos', ProductoController::class)
+    ->middleware([
+        'auth',                      // sigue autenticando
+        'role:gerente,cajero',       // ← aquí la protección por rol
+        \App\Http\Middleware\VisitasMiddleware::class,
+    ]);
+
 
 Route::resource('pedidos', PedidoController::class)->middleware([
     'auth', // si tienes auth
@@ -77,10 +82,34 @@ Route::resource('usuarios', UsuarioController::class)->middleware([
     \App\Http\Middleware\VisitasMiddleware::class,
 ]);
 
+// Stripe routes
 Route::get('ventas/{venta}/stripe', [StripeController::class, 'form'])->name('stripe.form');
 Route::post('stripe/procesar', [StripeController::class, 'procesar'])->name('stripe.procesar');
 Route::get('stripe/success/{venta}', [StripeController::class, 'success'])->name('stripe.success');
-Route::get('/ventas/{id}/success', [StripeController::class, 'success'])->name('stripe.success');
+//Route::get('/ventas/{id}/success', [StripeController::class, 'success'])->name('stripe.success');
 Route::get('/stripe/cancel', [StripeController::class, 'cancel'])->name('stripe.cancel');
-Route::get('/buscar-global', [BusquedaGlobalController::class, 'buscar'])->name('buscar.global');
+
+// Pago Fácil routes
+Route::middleware([
+    'auth',
+    \App\Http\Middleware\VisitasMiddleware::class,
+])->group(function () {
+    Route::get('/pagofacil', [PagoFacilController::class, 'index'])->name('pagofacil.index');
+    Route::post('/pagofacil/generar-qr', [PagoFacilController::class, 'generarQR'])->name('pagofacil.generar-qr');
+    Route::post('/pagofacil/consultar-estado', [PagoFacilController::class, 'consultarEstado'])->name('pagofacil.consultar-estado');
+    Route::get('/pagofacil/return', [PagoFacilController::class, 'return'])->name('pagofacil.return');
+});
+
+// Callback público para Pago Fácil (sin middleware de autenticación)
+Route::post('/pagofacil/callback', [PagoFacilController::class, 'callback'])->name('pagofacil.callback');
+
+// Búsqueda routes
+Route::get('/buscar-global', [BusquedaGlobalController::class, 'buscar'])->name('buscar.global')->middleware([
+    'auth',
+    \App\Http\Middleware\VisitasMiddleware::class,
+]);
+Route::get('/busqueda', [BusquedaGlobalController::class, 'buscar'])->name('busqueda.index')->middleware([
+    'auth',
+    \App\Http\Middleware\VisitasMiddleware::class,
+]);
 

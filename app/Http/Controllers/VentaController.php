@@ -12,7 +12,7 @@ use Inertia\Inertia;
 use App\Models\Visita;
 use App\Models\Pago;
 use Carbon\Carbon;
-use DB;
+use Illuminate\Support\Facades\DB;
 
 class VentaController extends Controller
 {
@@ -42,7 +42,7 @@ class VentaController extends Controller
             'usuario_id' => 'required|exists:users,id',
             'tipo' => 'required|in:TIENDA,ENVIO,RECOJO',
             'estado' => 'required|in:PENDIENTE,COMPLETADO,CANCELADO',
-            'metodo_pago' => 'required|in:EFECTIVO,TARJETA',
+            'metodo_pago' => 'required|in:EFECTIVO,TARJETA,PAGO_FACIL',
             'fecha_entrega' => ['required', 'date', function ($attribute, $value, $fail) {
                 $fecha = Carbon::parse($value)->startOfDay();
                 $hoy = Carbon::today();
@@ -117,10 +117,14 @@ class VentaController extends Controller
                     'monto' => $totalVenta,
                     'fecha' => now(),
                     'metodo_pago' => 'EFECTIVO',
+                    'estado' => 'completado'
                 ]);
 
                 DB::commit();
                 return redirect()->route('ventas.index')->with('success', 'Venta registrada y pagada en efectivo.');
+            } elseif ($request->metodo_pago === 'PAGO_FACIL') {
+                DB::commit();
+                return redirect()->route('pagofacil.index', ['venta_id' => $venta->id]);
             }
 
             DB::commit();
@@ -134,8 +138,13 @@ class VentaController extends Controller
 
     public function show(Venta $venta)
     {
+        $page_name = request()->path();
+        $visita = Visita::where('page_name', $page_name)->first();
+        $visitas = $visita ? $visita->cant : 0;
+
         return Inertia::render('Ventas/Show', [
-            'venta' => $venta->load('pedido.usuario', 'detalles.producto')
+            'venta' => $venta->load('pedido.usuario', 'detalles.producto', 'pagos'),
+            'visitas' => $visitas
         ]);
     }
 }

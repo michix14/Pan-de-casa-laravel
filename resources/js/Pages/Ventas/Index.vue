@@ -114,6 +114,27 @@ watch(
                 </td>
                 <td class="px-6 py-4 text-right text-sm font-medium">
                   <div class="flex justify-end space-x-2">
+                    <!-- Mostrar botón de Pago Fácil solo si la venta está pendiente -->
+                    <Link 
+                      v-if="venta.pedido?.estado === 'PENDIENTE'" 
+                      :href="route('pagofacil.index', { venta_id: venta.id })" 
+                      class="inline-flex items-center px-3 py-1 text-sm bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-md transition"
+                    >
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                      Pago Fácil
+                    </Link>
+                    <Link 
+                      :href="route('ventas.show', venta.id)" 
+                      class="inline-flex items-center px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
+                    >
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      Ver
+                    </Link>
                     <Link :href="route('ventas.edit', venta.id)" class="inline-flex items-center px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition">
                       Editar
                     </Link>
@@ -154,6 +175,20 @@ watch(
               </ul>
             </div>
             <div class="mt-3 flex space-x-2">
+              <!-- Mostrar botón de Pago Fácil solo si la venta está pendiente -->
+              <Link 
+                v-if="venta.pedido?.estado === 'PENDIENTE'" 
+                :href="route('pagofacil.index', { venta_id: venta.id })" 
+                class="flex-1 inline-flex justify-center px-3 py-2 text-sm bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-md"
+              >
+                Pago Fácil
+              </Link>
+              <Link 
+                :href="route('ventas.show', venta.id)" 
+                class="flex-1 inline-flex justify-center px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md"
+              >
+                Ver
+              </Link>
               <button @click="eliminar(venta.id)" class="flex-1 inline-flex justify-center px-3 py-2 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-md">
                 Eliminar
               </button>
