@@ -29,11 +29,12 @@ class PagoFacilController extends Controller
     public function index(Request $request)
     {
         $ventaId = $request->query('venta_id');
-        $venta = null;
         
-        if ($ventaId) {
-            $venta = Venta::with(['detalles.producto', 'pedido'])->findOrFail($ventaId);
+        if (!$ventaId) {
+            return redirect()->route('ventas.index')->with('error', 'ID de venta requerido.');
         }
+
+        $venta = Venta::with(['detalles.producto', 'pedido.usuario'])->findOrFail($ventaId);
 
         return Inertia::render('PagoFacil/Index', [
             'venta' => $venta

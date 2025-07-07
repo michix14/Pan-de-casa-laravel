@@ -4,8 +4,14 @@ import { ref, computed } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 
 const props = defineProps({
-  venta: Object,
-  visitas: Number
+  venta: {
+    type: Object,
+    required: true
+  },
+  visitas: {
+    type: Number,
+    default: 0
+  }
 });
 
 const procesandoPago = ref(false);
@@ -17,7 +23,7 @@ const nroPago = ref(null);
 const consultandoEstado = ref(false);
 
 const form = useForm({
-  venta_id: props.venta?.id || null,
+  venta_id: props.venta.id,
   metodo_pago: 'qr',
   telefono: '',
   ci_nit: ''
@@ -134,7 +140,7 @@ const reiniciarPago = () => {
   transactionId.value = null;
   nroPago.value = null;
   form.reset();
-  form.venta_id = props.venta?.id || null;
+  form.venta_id = props.venta.id;
 };
 
 const formatearMoneda = (monto) => {
@@ -181,7 +187,7 @@ const formatearMoneda = (monto) => {
             <div class="border-t pt-3">
               <h3 class="text-sm font-medium text-gray-900 mb-2">Productos:</h3>
               <div class="space-y-1">
-                <div v-for="detalle in venta.detalle_ventas" :key="detalle.id" 
+                <div v-for="detalle in venta.detalles" :key="detalle.id" 
                      class="flex justify-between text-sm">
                   <span>{{ detalle.producto.nombre }} x{{ detalle.cantidad }}</span>
                   <span>{{ formatearMoneda(detalle.cantidad * detalle.precio_unitario) }}</span>

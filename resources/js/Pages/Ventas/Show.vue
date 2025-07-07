@@ -3,8 +3,15 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link } from '@inertiajs/vue3';
 
 const props = defineProps({
-  venta: Object,
-  visitas: Number
+  venta: {
+    type: Object,
+    required: true,
+    default: () => ({})
+  },
+  visitas: {
+    type: Number,
+    default: 0
+  }
 });
 
 const formatearFecha = (fecha) => {
