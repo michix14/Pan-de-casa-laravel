@@ -86,7 +86,7 @@ Route::resource('usuarios', UsuarioController::class)->middleware([
 Route::get('ventas/{venta}/stripe', [StripeController::class, 'form'])->name('stripe.form');
 Route::post('stripe/procesar', [StripeController::class, 'procesar'])->name('stripe.procesar');
 Route::get('stripe/success/{venta}', [StripeController::class, 'success'])->name('stripe.success');
-//Route::get('/ventas/{id}/success', [StripeController::class, 'success'])->name('stripe.success');
+Route::get('/ventas/{id}/success', [StripeController::class, 'success'])->name('stripe.success');
 Route::get('/stripe/cancel', [StripeController::class, 'cancel'])->name('stripe.cancel');
 
 // Pago Fácil routes
