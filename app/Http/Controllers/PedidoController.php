@@ -113,4 +113,23 @@ class PedidoController extends Controller
 
         return redirect()->route('pedidos.index')->with('success', 'Pedido eliminado exitosamente.');
     }
+
+    public function pagos(Pedido $pedido)
+    {
+        $page_name = request()->path();
+        $visita = Visita::where('page_name', $page_name)->first();
+        $visitas = $visita ? $visita->cant : 0;
+
+        // Cargar el pedido con sus relaciones
+        $pedido->load('usuario');
+        
+        // Obtener todos los pagos asociados al pedido a través de las ventas
+        $pagos = $pedido->pagos()->with('venta')->orderBy('fecha_pago', 'desc')->get();
+
+        return Inertia::render('Pedidos/Pagos', [
+            'pedido' => $pedido,
+            'pagos' => $pagos,
+            'visitas' => $visitas
+        ]);
+    }
 }

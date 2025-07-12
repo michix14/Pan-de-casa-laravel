@@ -83,6 +83,12 @@ const eliminar = (id) => {
                 </td>
                 <td class="px-6 py-4 text-right text-sm font-medium">
                   <div class="flex justify-end space-x-2">
+                    <Link :href="route('pedidos.pagos', pedido.id)" class="inline-flex items-center px-3 py-1 text-sm bg-green-100 hover:bg-green-200 text-green-700 rounded-md transition">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      Pagos
+                    </Link>
                     <Link :href="route('pedidos.edit', pedido.id)" class="inline-flex items-center px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition">
                       Editar
                     </Link>
@@ -100,7 +106,7 @@ const eliminar = (id) => {
         <div class="lg:hidden space-y-4">
           <div v-for="pedido in pedidos" :key="pedido.id" class="bg-white shadow-sm rounded-lg p-4 border border-gray-200">
             <div class="text-sm text-gray-700">
-              <p><strong>Usuario:</strong> {{ pedido.usuario?.nombre ?? 'Sin nombre' }}</p>
+              <p><strong>Usuario:</strong> {{ pedido.usuario?.name ?? 'Sin nombre' }}</p>
               <p><strong>Tipo:</strong> {{ pedido.tipo }}</p>
               <p><strong>Estado:</strong>
                 <span :class="[
@@ -115,6 +121,9 @@ const eliminar = (id) => {
               <p><strong>Fecha entrega:</strong> {{ pedido.fecha_entrega }}</p>
             </div>
             <div class="mt-3 flex space-x-2">
+              <Link :href="route('pedidos.pagos', pedido.id)" class="flex-1 inline-flex justify-center px-3 py-2 text-sm bg-green-100 hover:bg-green-200 text-green-700 rounded-md">
+                Pagos
+              </Link>
               <Link :href="route('pedidos.edit', pedido.id)" class="flex-1 inline-flex justify-center px-3 py-2 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md">
                 Editar
               </Link>

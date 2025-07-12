@@ -72,6 +72,11 @@ Route::resource('pedidos', PedidoController::class)->middleware([
     \App\Http\Middleware\VisitasMiddleware::class, // tu middleware
 ]);
 
+Route::get('pedidos/{pedido}/pagos', [PedidoController::class, 'pagos'])->name('pedidos.pagos')->middleware([
+    'auth',
+    \App\Http\Middleware\VisitasMiddleware::class,
+]);
+
 Route::resource('ventas', VentaController::class)->middleware([
     'auth', // si tienes auth
     \App\Http\Middleware\VisitasMiddleware::class, // tu middleware

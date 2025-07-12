@@ -22,4 +22,14 @@ class Pedido extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function ventas()
+    {
+        return $this->hasMany(Venta::class);
+    }
+
+    public function pagos()
+    {
+        return $this->hasManyThrough(Pago::class, Venta::class);
+    }
 }
