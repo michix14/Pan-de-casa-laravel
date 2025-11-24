@@ -13,12 +13,20 @@ use GuzzleHttp\Client;
 class PagoFacilController extends Controller
 {
     /**
+     * Estados de pago según PagoFácil
+     * Estos valores pueden variar, ajusta según tu documentación específica
+     */
+    private const PAYMENT_STATUS_PENDING = 0;
+    private const PAYMENT_STATUS_COMPLETED = 2;
+    private const PAYMENT_STATUS_REJECTED = 3;
+
+    /**
      * Mostrar la página de pago
      */
     public function index(Request $request)
     {
         $ventaId = $request->query('venta_id');
-        
+
         if (!$ventaId) {
             return redirect()->route('ventas.index')->with('error', 'ID de venta requerido.');
         }
@@ -50,45 +58,42 @@ class PagoFacilController extends Controller
             $tokenResponse = $this->obtenerToken();
             Log::info('Token obtenido', ['tokenResponse' => $tokenResponse]);
 
-            if (!isset($tokenResponse["values"])) {
-                Log::error('No se pudo obtener un token válido');
+            if (!isset($tokenResponse['values']['accessToken'])) {
+                Log::error('No se pudo obtener un token válido', ['response' => $tokenResponse]);
                 return response()->json(['success' => false, 'message' => 'No se pudo obtener un token válido'], 500);
             }
 
-            $accessToken = $tokenResponse["values"];
+            $accessToken = $tokenResponse['values']['accessToken'];
+            Log::info('Access token extraído correctamente', ['token' => substr($accessToken, 0, 20) . '...']);
 
             // Preparar datos del pedido
             $pedidoDetalle = $this->formatearDetallesPedido($venta);
             $nroPago = "venta-" . $venta->id . "-" . time();
 
-            // Cuerpo de la solicitud para QR
             $body = [
-                "tcCommerceID" => config('pagofacil.commerce_id'),
-                "tcNroPago" => $nroPago,
-                "tcNombreUsuario" => $venta->pedido->usuario->name,
-                "tnCiNit" => (int)($request->ci_nit ?? 0),
-                "tnTelefono" => (int)($request->telefono ?? 0),
-                "tcCorreo" => $venta->pedido->usuario->email,
-                "tnMontoClienteEmpresa" => (float)$venta->total,
-                "tnMoneda" => 2,
-                "tcUrlCallBack" => config('pagofacil.callback_url'),
-                "tcUrlReturn" => config('pagofacil.return_url'),
-                "taPedidoDetalle" => $pedidoDetalle,
+                "paymentMethod" => 4, // 1 = QR
+                "clientName" => $venta->pedido->usuario->name,
+                "documentType" => 1,
+                "documentId" => (string)($request->ci_nit ?? "0"),
+                "phoneNumber" => (string)($request->telefono ?? "0"),
+                "email" => $venta->pedido->usuario->email,
+                "paymentNumber" => $nroPago,
+                "amount" => (float)$venta->total,
+                "currency" => 2, // BOB
+                "clientCode" => (string)$venta->pedido->usuario->id,
+                "callbackUrl" => config('pagofacil.callback_url'),
+                "orderDetail" => $pedidoDetalle,
             ];
 
             Log::info('Cuerpo de la solicitud generado', ['body' => $body]);
 
-            // Encabezados
             $headers = [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $accessToken
             ];
 
-            // Cliente HTTP
             $client = new Client();
-
-            // Realizar la solicitud
-            $url = config('pagofacil.base_url') . '/api/servicio/pagoqr';
+            $url = config('pagofacil.base_url') . '/generate-qr';
             Log::info('Enviando solicitud a PagoFácil', ['url' => $url]);
 
             $response = $client->post($url, [
@@ -99,54 +104,43 @@ class PagoFacilController extends Controller
             $responseContent = $response->getBody()->getContents();
             Log::info('Contenido crudo de la respuesta', ['response' => $responseContent]);
 
-            // Decodificar JSON principal
             $result = json_decode($responseContent, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error('Error al decodificar JSON principal', [
+                Log::error('Error al decodificar JSON', [
                     'error_message' => json_last_error_msg(),
                     'response_content' => $responseContent
                 ]);
                 return response()->json(['success' => false, 'message' => 'Error al procesar la respuesta del servicio'], 500);
             }
 
-            // Verificar que `values` exista en la respuesta
             if (!isset($result['values'])) {
                 Log::error('El campo values no está presente en la respuesta', ['result' => $result]);
                 return response()->json(['success' => false, 'message' => 'Respuesta inesperada del servicio'], 500);
             }
 
-            // Dividir el campo `values`
-            $valuesParts = explode(";", $result['values']);
+            $values = $result['values'];
 
-            if (count($valuesParts) < 2) {
-                Log::error('El campo values no contiene datos esperados', ['values' => $result['values']]);
-                return response()->json(['success' => false, 'message' => 'Respuesta inesperada en el campo values'], 500);
-            }
+            Log::info('Estructura completa de values recibida', [
+                'values_keys' => array_keys((array)$values),
+                'values_type' => gettype($values),
+                'values_content' => $values
+            ]);
 
-            // Extraer número de transacción
-            $nroTransaccion = $valuesParts[0];
+            $qrBase64 = $values['qrBase64'] ?? null;
+            $transactionId = $values['transactionId'] ?? null;
 
-            // Extraer y decodificar el QR
-            $jsonEscaped = $valuesParts[1];
-            $qrData = json_decode($jsonEscaped, true);
-
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error('Error al decodificar JSON del campo values', [
-                    'error_message' => json_last_error_msg(),
-                    'json_escaped' => $jsonEscaped
+            if (!$qrBase64 || !$transactionId) {
+                Log::error('No se encontraron qrBase64 o transactionId en la respuesta', [
+                    'values' => $values,
+                    'qrBase64_encontrado' => !is_null($qrBase64),
+                    'transactionId_encontrado' => !is_null($transactionId),
+                    'todas_las_claves' => array_keys((array)$values)
                 ]);
-                return response()->json(['success' => false, 'message' => 'Error al procesar los datos del QR'], 500);
+                return response()->json(['success' => false, 'message' => 'Error al obtener los datos del QR'], 500);
             }
 
-            // Extraer el QR imagen
-            $qrImage = $qrData['qrImage'] ?? null;
-            $qrImageBase64 = "data:image/png;base64," . $qrImage;
-
-            if (!$qrImage) {
-                Log::error('QR imagen no encontrada en los datos del QR', ['qrData' => $qrData]);
-                return response()->json(['success' => false, 'message' => 'No se encontró el QR'], 500);
-            }
+            $qrImageBase64 = "data:image/png;base64," . $qrBase64;
 
             // Crear registro de pago pendiente
             $pago = Pago::create([
@@ -156,28 +150,28 @@ class PagoFacilController extends Controller
                 'metodo_pago' => 'PAGO_FACIL',
                 'estado' => 'pendiente',
                 'referencia_externa' => $nroPago,
-                'transaction_id' => $nroTransaccion,
+                'transaction_id' => $transactionId,
                 'datos_pago' => json_encode($result)
             ]);
 
-            Log::info('QR y número de transacción generados correctamente', [
-                'qrImage' => substr($qrImageBase64, 0, 50) . '...',
-                'nroTransaccion' => $nroTransaccion,
+            Log::info('QR y transaction ID generados correctamente', [
+                'qrBase64' => substr($qrBase64, 0, 50) . '...',
+                'transactionId' => $transactionId,
                 'pago_id' => $pago->id
             ]);
 
             return response()->json([
                 'success' => true,
                 'qr_image' => $qrImageBase64,
-                'transaction_id' => $nroTransaccion,
+                'transaction_id' => $transactionId,
                 'nro_pago' => $nroPago
             ]);
-
         } catch (\Throwable $th) {
             Log::error('Error en generarQR', [
                 'error' => $th->getMessage(),
                 'line' => $th->getLine(),
-                'file' => $th->getFile()
+                'file' => $th->getFile(),
+                'trace' => $th->getTraceAsString()
             ]);
             return response()->json(['success' => false, 'message' => $th->getMessage()], 500);
         }
@@ -185,158 +179,103 @@ class PagoFacilController extends Controller
 
     /**
      * Consultar estado del pago
+     * Retorna la estructura correcta según documentación de PagoFácil
      */
+
+    // ...existing code...
     public function consultarEstado(Request $request)
     {
+        set_time_limit(120);
+
         try {
             $transactionId = $request->input('transaction_id');
-            
+
             if (!$transactionId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Transaction ID es requerido'
-                ], 400);
+                return response()->json(['success' => false, 'message' => 'Transaction ID es requerido'], 400);
             }
 
-            // Obtener token de autenticación
-            $tokenResponse = $this->obtenerToken();
-            $accessToken = $tokenResponse['values'] ?? null;
-
-            if (!$accessToken) {
-                Log::error('No se pudo obtener el token de PagoFácil para consultar estado');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Error de autenticación con PagoFácil'
-                ], 500);
+            // 1. Obtener token con manejo de errores
+            try {
+                $tokenResponse = $this->obtenerToken();
+            } catch (\Exception $e) {
+                Log::error('Fallo al obtener token en consultarEstado', ['error' => $e->getMessage()]);
+                return response()->json(['success' => false, 'message' => 'Error de conexión con pasarela'], 500);
             }
 
+            if (!isset($tokenResponse['values']['accessToken'])) {
+                return response()->json(['success' => false, 'message' => 'No se pudo autenticar con PagoFácil'], 500);
+            }
+
+            $accessToken = $tokenResponse['values']['accessToken'];
             $client = new Client();
 
-            // Realizar consulta del estado
-            $response = $client->post(config('pagofacil.base_url') . '/api/servicio/consultartransaccion', [
+            // 2. Realizar la petición con http_errors => false para evitar excepciones fatales
+            $response = $client->post(config('pagofacil.base_url') . '/query-transaction', [
                 'headers' => [
                     'Accept' => 'application/json',
                     'Authorization' => 'Bearer ' . $accessToken
                 ],
                 'json' => [
-                    'TransaccionDePago' => $transactionId
-                ]
+                    'pagofacilTransactionId' => $transactionId // Asegurar que sea entero
+                ],
+                'http_errors' => false,
+                'timeout' => 90,        // ✅ AUMENTADO: Esperar hasta 90s
+                'connect_timeout' => 10 //
+                // IMPORTANTE: Evita que Guzzle lance excepción en 4xx/5xx
             ]);
 
-            $result = json_decode($response->getBody()->getContents(), true);
-            
-            Log::info('Respuesta de consulta de estado', [
-                'transaction_id' => $transactionId,
-                'response' => $result
-            ]);
+            $responseContent = $response->getBody()->getContents();
+            $result = json_decode($responseContent, true);
 
-            // Verificar la estructura de la respuesta
-            if (!isset($result['values'])) {
-                Log::error('Respuesta inesperada de PagoFácil', ['result' => $result]);
+            Log::info('Respuesta cruda consultarEstado', ['content' => $result]);
+
+            // 3. Validar si la respuesta es válida (JSON mal formado o null)
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return response()->json(['success' => false, 'message' => 'Respuesta inválida del proveedor'], 500);
+            }
+
+            // 4. Validar errores lógicos de la API
+            if (isset($result['error']) && $result['error'] != 0) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Respuesta inesperada del servicio'
-                ], 500);
+                    'message' => $result['message'] ?? 'Error en la transacción'
+                ], 400);
             }
 
-            $estado = $result['values']['messageEstado'] ?? 0;
-            $estadoTexto = $result['values']['messageEstadoDescription'] ?? '';
-            $horaPago = $result['values']['HoraPago'] ?? null;
-            $fechaPago = $result['values']['FechaPago'] ?? null;
-
-            // Buscar el pago en nuestra base de datos
-            $pago = Pago::where('transaction_id', $transactionId)->first();
-
-            // Determinar si el pago está completado basado en múltiples criterios
-            $tieneHoraYFecha = ($horaPago !== null && $fechaPago !== null);
-            $estadoProcesado = $estadoTexto && (
-                str_contains($estadoTexto, 'PROCESADO') || 
-                str_contains($estadoTexto, 'COMPLETADO - PROCESADO')
-            );
-            $pagoCompletado = $tieneHoraYFecha || $estadoProcesado;
-
-            if ($pago && $pagoCompletado) { 
-                // Pago completado (tiene hora y fecha de pago, o estado indica procesado)
-                $pago->update([
-                    'estado' => 'completado',
-                    'fecha_pago' => now(),
-                    'datos_pago' => json_encode($result['values'])
-                ]);
-
-                // Actualizar el estado del pedido a COMPLETADO
-                $this->actualizarEstadoPedido($pago);
-
-                Log::info('Pago actualizado como completado', [
-                    'pago_id' => $pago->id,
-                    'transaction_id' => $transactionId,
-                    'tiene_hora_y_fecha' => $tieneHoraYFecha,
-                    'estado_procesado' => $estadoProcesado,
-                    'hora_pago' => $horaPago,
-                    'fecha_pago' => $fechaPago,
-                    'estado_texto' => $estadoTexto
-                ]);
-            } elseif ($pago && $estado == 3) { 
-                // Estado 3 = Pago rechazado
-                $pago->update([
-                    'estado' => 'rechazado',
-                    'datos_pago' => json_encode($result['values'])
-                ]);
-
-                Log::info('Pago marcado como rechazado', [
-                    'pago_id' => $pago->id,
-                    'transaction_id' => $transactionId
-                ]);
-            } elseif ($pago) {
-                // Actualizar los datos aunque esté pendiente
-                $pago->update([
-                    'datos_pago' => json_encode($result['values'])
-                ]);
-                
-                Log::info('Pago aún pendiente, datos actualizados', [
-                    'pago_id' => $pago->id,
-                    'transaction_id' => $transactionId,
-                    'hora_pago' => $horaPago,
-                    'fecha_pago' => $fechaPago,
-                    'estado_actual' => $estado
-                ]);
+            if (!isset($result['values'])) {
+                return response()->json(['success' => false, 'message' => 'Datos no encontrados'], 404);
             }
-            
+
+            $values = $result['values'];
+
+            // 5. Retornar datos seguros (usando null coalescing operator ??)
             return response()->json([
                 'success' => true,
-                'estado' => $estado,
-                'estado_texto' => $estadoTexto,
-                'pago_completado' => $pagoCompletado,
-                'hora_pago' => $horaPago,
-                'fecha_pago' => $fechaPago,
-                'data' => $result['values'] ?? []
+                'data' => [
+                    'pagofacilTransactionId' => $values['pagofacilTransactionId'] ?? null,
+                    'companyTransactionId' => $values['companyTransactionId'] ?? null,
+                    'paymentStatus' => $values['paymentStatus'] ?? null, // Aquí vendrá el 5
+                    'paymentDate' => $values['paymentDate'] ?? null,
+                    'paymentTime' => $values['paymentTime'] ?? null,
+                    // Agregamos descripción para depuración
+                    'paymentStatusDescription' => $values['paymentStatusDescription'] ?? ''
+                ],
+                'message' => $result['message'] ?? 'Consulta realizada'
             ]);
-
         } catch (\Exception $e) {
-            Log::error('Error al consultar estado de pago', [
-                'transaction_id' => $request->input('transaction_id'),
+            Log::error('Excepción crítica en consultarEstado', [
                 'error' => $e->getMessage(),
                 'line' => $e->getLine(),
                 'file' => $e->getFile()
             ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Error interno del servidor'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Error interno del servidor: ' . $e->getMessage()], 500);
         }
     }
+// ...existing code...
 
     /**
      * Callback para notificaciones de Pago Fácil
      * Recibe notificaciones cuando se completa un pago
-     * 
-     * Estructura de datos recibidos de PagoFácil:
-     * {
-     *   "PedidoID": "El Id de identificación del pedido (ej: venta-9-1751920294)",
-     *   "Fecha": "Fecha de realización del pago",
-     *   "Hora": "Hora del pago",
-     *   "MetodoPago": "Medio por el que se realizo el pago",
-     *   "Estado": "Estado del pago"
-     * }
      */
     public function callback(Request $request)
     {
@@ -344,7 +283,7 @@ class PagoFacilController extends Controller
             Log::info('Callback recibido de Pago Fácil', ['data' => $request->all()]);
 
             // Validar que se recibieron todos los datos necesarios
-            $pedidoId = $request->input('PedidoID'); // Formato: "venta-9-1751920294"
+            $pedidoId = $request->input('PedidoID');
             $fecha = $request->input('Fecha');
             $hora = $request->input('Hora');
             $metodoPago = $request->input('MetodoPago');
@@ -354,7 +293,7 @@ class PagoFacilController extends Controller
                 Log::error('Callback sin PedidoID', ['data' => $request->all()]);
                 return response()->json([
                     'error' => 1,
-                    'estatus' => 0,
+                    'status' => 0,
                     'message' => "PedidoID es requerido",
                     'values' => false
                 ]);
@@ -362,13 +301,11 @@ class PagoFacilController extends Controller
 
             Log::info('Buscando pago con referencia externa', ['pedido_id' => $pedidoId]);
 
-            // Buscar el pago en nuestra base de datos usando la referencia externa
             $pago = Pago::where('referencia_externa', $pedidoId)->first();
 
             if (!$pago) {
-                // Buscar todos los pagos para debugging
                 $todosPagos = Pago::select('id', 'referencia_externa', 'venta_id', 'estado')->get();
-                
+
                 Log::error('Pago no encontrado en base de datos', [
                     'pedido_id_buscado' => $pedidoId,
                     'callback_data' => $request->all(),
@@ -379,13 +316,12 @@ class PagoFacilController extends Controller
                 if (preg_match('/^venta-(\d+)-\d+$/', $pedidoId, $matches)) {
                     $ventaId = $matches[1];
                     Log::info('ID de venta extraído del PedidoID', ['venta_id' => $ventaId]);
-                    
-                    // Buscar cualquier pago de esta venta que esté pendiente
+
                     $pagoAlternativo = Pago::where('venta_id', $ventaId)
-                                          ->where('estado', 'pendiente')
-                                          ->orderBy('id', 'desc')
-                                          ->first();
-                    
+                        ->where('estado', 'pendiente')
+                        ->orderBy('id', 'desc')
+                        ->first();
+
                     if ($pagoAlternativo) {
                         Log::warning('Pago encontrado con método alternativo', [
                             'pago_id' => $pagoAlternativo->id,
@@ -393,16 +329,14 @@ class PagoFacilController extends Controller
                             'referencia_callback' => $pedidoId
                         ]);
                         $pago = $pagoAlternativo;
-                        
-                        // Actualizar la referencia externa para que coincida
                         $pago->update(['referencia_externa' => $pedidoId]);
                     }
                 }
-                
+
                 if (!$pago) {
                     return response()->json([
                         'error' => 1,
-                        'estatus' => 0,
+                        'status' => 0,
                         'message' => "Pago no encontrado en el sistema",
                         'values' => false
                     ]);
@@ -410,35 +344,20 @@ class PagoFacilController extends Controller
             }
 
             // Procesar según el estado del pago
-            $estadoInterno = 'pendiente';
-            
-            // La lógica principal es verificar si el estado indica "completado" 
-            // o si es un estado numérico específico, o si contiene "PROCESADO"
-            $estadoLower = strtolower($estado);
-            if ($estadoLower === 'completado' || 
-                $estadoLower === 'pagado' || 
-                $estado === '2' ||
-                str_contains($estadoLower, 'procesado') ||
-                str_contains($estadoLower, 'completado - procesado')) {
-                $estadoInterno = 'completado';
-            } elseif ($estadoLower === 'rechazado' || 
-                     $estadoLower === 'cancelado' || 
-                     $estado === '3') {
-                $estadoInterno = 'rechazado';
-            } else {
-                // Para otros casos, mantener como pendiente
-                // El callback de PagoFácil normalmente solo se envía cuando hay un cambio de estado significativo
-                Log::info('Estado no reconocido en callback, manteniendo como pendiente', [
-                    'estado_recibido' => $estado,
-                    'pedido_id' => $pedidoId
-                ]);
-            }
+            // Nota: El campo 'Estado' del callback contiene el estado desde PagoFácil
+            // Ajusta estos valores según lo que PagoFácil realmente devuelva
+            $estadoInterno = $this->mapearEstadoPago($estado);
+
+            Log::info('Estado mapeado', [
+                'estado_pagofacil' => $estado,
+                'estado_interno' => $estadoInterno
+            ]);
 
             // Actualizar el pago en nuestra base de datos
             $pago->update([
                 'estado' => $estadoInterno,
                 'fecha_pago' => now(),
-                'metodo_pago' => 'PAGO_FACIL_' . strtoupper($metodoPago ?? 'QR'),
+                'metodo_pago' => 'PAGO_FACIL',
                 'datos_pago' => json_encode([
                     'callback_data' => $request->all(),
                     'fecha_callback' => now(),
@@ -456,26 +375,18 @@ class PagoFacilController extends Controller
             Log::info('Pago actualizado exitosamente desde callback', [
                 'pago_id' => $pago->id,
                 'pedido_id' => $pedidoId,
-                'estado_anterior' => $pago->getOriginal('estado'),
                 'estado_nuevo' => $estadoInterno,
                 'metodo_pago' => $metodoPago,
-                'fecha_pago' => $fecha . ' ' . $hora,
-                'pedido_actualizado' => $estadoInterno === 'completado' ? 'SI' : 'NO'
+                'fecha_pago' => $fecha . ' ' . $hora
             ]);
-
-            // Si el pago fue completado, actualizar también el estado del pedido
-            if ($estadoInterno === 'completado') {
-                $this->actualizarEstadoPedido($pago);
-            }
 
             // Respuesta exitosa según especificación de PagoFácil
             return response()->json([
                 'error' => 0,
-                'estatus' => 1,
+                'status' => 1,
                 'message' => "Pago procesado correctamente",
                 'values' => true
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error en callback de PagoFácil', [
                 'error' => $e->getMessage(),
@@ -484,14 +395,48 @@ class PagoFacilController extends Controller
                 'data' => $request->all()
             ]);
 
-            // Respuesta de error según especificación de PagoFácil
             return response()->json([
                 'error' => 1,
-                'estatus' => 0,
+                'status' => 0,
                 'message' => "No se pudo procesar el pago, por favor intente de nuevo",
                 'values' => false
             ]);
         }
+    }
+
+    /**
+     * Mapear estado de PagoFácil a estado interno
+     * Ajusta los valores según la documentación específica de PagoFácil
+     */
+    private function mapearEstadoPago($estado)
+    {
+        $estadoLower = strtolower((string)$estado);
+
+        // Estados completados
+        if (
+            $estadoLower === 'completado' ||
+            $estadoLower === 'pagado' ||
+            $estado === '1' ||
+            $estado === 1 ||
+            $estado === self::PAYMENT_STATUS_COMPLETED ||
+            str_contains($estadoLower, 'procesado')
+        ) {
+            return 'completado';
+        }
+
+        // Estados rechazados
+        if (
+            $estadoLower === 'rechazado' ||
+            $estadoLower === 'cancelado' ||
+            $estado === '3' ||
+            $estado === 3 ||
+            $estado === self::PAYMENT_STATUS_REJECTED
+        ) {
+            return 'rechazado';
+        }
+
+        // Estado por defecto: pendiente
+        return 'pendiente';
     }
 
     /**
@@ -526,13 +471,11 @@ class PagoFacilController extends Controller
         try {
             $client = new Client();
 
-            $response = $client->post(config('pagofacil.base_url') . '/api/servicio/login', [
+            $response = $client->post(config('pagofacil.base_url') . '/login', [
                 'headers' => [
-                    'Accept' => 'application/json'
-                ],
-                'json' => [
-                    'TokenService' => config('pagofacil.token_service'),
-                    'TokenSecret' => config('pagofacil.token_secret')
+                    'Accept' => 'application/json',
+                    'tcTokenService' => config('pagofacil.token_service'),
+                    'tcTokenSecret' => config('pagofacil.token_secret')
                 ],
                 'timeout' => config('pagofacil.timeout', 30)
             ]);
@@ -562,15 +505,15 @@ class PagoFacilController extends Controller
     private function formatearDetallesPedido($venta)
     {
         $detalles = [];
-        
+
         foreach ($venta->detalles as $detalle) {
             $detalles[] = [
-                'Serial' => $detalle->id,
-                'Producto' => $detalle->producto->nombre,
-                'Cantidad' => $detalle->cantidad,
-                'Precio' => $detalle->precio_unitario,
-                'Descuento' => 0,
-                'Total' => $detalle->cantidad * $detalle->precio_unitario
+                'serial' => $detalle->id,
+                'product' => $detalle->producto->nombre,
+                'quantity' => $detalle->cantidad,
+                'price' => $detalle->precio_unitario,
+                'discount' => 0,
+                'total' => $detalle->cantidad * $detalle->precio_unitario
             ];
         }
 
@@ -591,10 +534,10 @@ class PagoFacilController extends Controller
     public function debugPagos(Request $request)
     {
         $pagos = Pago::with('venta')
-                    ->select('id', 'venta_id', 'referencia_externa', 'transaction_id', 'estado', 'monto', 'fecha')
-                    ->orderBy('id', 'desc')
-                    ->limit(20)
-                    ->get();
+            ->select('id', 'venta_id', 'referencia_externa', 'transaction_id', 'estado', 'monto', 'fecha')
+            ->orderBy('id', 'desc')
+            ->limit(20)
+            ->get();
 
         return response()->json([
             'pagos' => $pagos->map(function ($pago) {
@@ -616,21 +559,22 @@ class PagoFacilController extends Controller
 
     /**
      * Obtener estado de un pago por su referencia externa
+     * ✅ CORREGIDO: Usa las claves correctas de la documentación
      */
     public function obtenerEstadoPago(Request $request)
     {
         try {
-            $referencia = $request->input('referencia');
-            
-            if (!$referencia) {
+            $transactionId = $request->input('transaction_id');
+
+            if (!$transactionId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Referencia es requerida'
+                    'message' => 'Transaction ID es requerida'
                 ], 400);
             }
 
             // Buscar el pago por referencia externa
-            $pago = Pago::where('referencia_externa', $referencia)->first();
+            $pago = Pago::where('pagoFacilTransactionId', $transactionId)->first();
 
             if (!$pago) {
                 return response()->json([
@@ -641,57 +585,64 @@ class PagoFacilController extends Controller
 
             // Si hay transaction_id, consultar también el estado en PagoFácil
             $estadoPagoFacil = null;
-            if ($pago->transaction_id) {
+            if ($pago->referencia_externa && $pago->transaction_id) {
                 try {
                     $tokenResponse = $this->obtenerToken();
-                    $accessToken = $tokenResponse['values'] ?? null;
+                    $accessToken = $tokenResponse['values']['accessToken'] ?? null;
 
                     if ($accessToken) {
                         $client = new Client();
-                        $response = $client->post(config('pagofacil.base_url') . '/api/servicio/consultartransaccion', [
+                        $response = $client->post(config('pagofacil.base_url') . '/query-transaction', [
                             'headers' => [
                                 'Accept' => 'application/json',
                                 'Authorization' => 'Bearer ' . $accessToken
                             ],
                             'json' => [
-                                'TransaccionDePago' => $pago->transaction_id
+                                'pagoFacilTransactionId' => $pago->transaction_id
                             ]
                         ]);
-
+                        Log::info('Intentando consultar transacción en PagoFácil', [
+                            'url' => config('pagofacil.base_url') . '/query-transaction',
+                            'transactionId' => $transactionId,
+                            'headers' => [
+                                'Authorization' => 'Bearer ' . $accessToken
+                            ]
+                        ]);
                         $result = json_decode($response->getBody()->getContents(), true);
                         $estadoPagoFacil = $result['values'] ?? null;
-                        
-                        // Si obtenemos el estado de PagoFácil, verificar si debemos actualizar nuestro registro
+
+                        // ✅ CORREGIDO: Usar las claves correctas de la documentación
                         if ($estadoPagoFacil && $pago->estado !== 'completado') {
-                            $horaPago = $estadoPagoFacil['HoraPago'] ?? null;
-                            $fechaPago = $estadoPagoFacil['FechaPago'] ?? null;
-                            $messageEstado = $estadoPagoFacil['messageEstadoDescription'] ?? '';
-                            
-                            // Verificar si el pago está completado según múltiples criterios
-                            $tieneHoraYFecha = ($horaPago !== null && $fechaPago !== null);
-                            $estadoProcesado = $messageEstado && (
-                                str_contains($messageEstado, 'PROCESADO') || 
-                                str_contains($messageEstado, 'COMPLETADO - PROCESADO')
-                            );
-                            
-                            if ($tieneHoraYFecha || $estadoProcesado) {
+                            $paymentTime = $estadoPagoFacil['paymentTime'] ?? null;
+                            $paymentDate = $estadoPagoFacil['paymentDate'] ?? null;
+                            $paymentStatus = $estadoPagoFacil['paymentStatus'] ?? null;
+
+                            Log::info('Estado de pago desde PagoFácil', [
+                                'paymentTime' => $paymentTime,
+                                'paymentDate' => $paymentDate,
+                                'paymentStatus' => $paymentStatus
+                            ]);
+
+                            // Verificar si el pago está completado según PagoFácil
+                            $tieneHoraYFecha = ($paymentTime !== null && $paymentDate !== null);
+                            $estadoCompletado = $paymentStatus === 1 || $paymentStatus === 5;
+
+                            if ($tieneHoraYFecha || $estadoCompletado) {
                                 $pago->update([
                                     'estado' => 'completado',
                                     'fecha_pago' => now(),
                                     'datos_pago' => json_encode($estadoPagoFacil)
                                 ]);
-                                
+
                                 // Actualizar el estado del pedido a COMPLETADO
                                 $this->actualizarEstadoPedido($pago);
-                                
+
                                 Log::info('Pago actualizado como completado desde obtenerEstadoPago', [
                                     'pago_id' => $pago->id,
-                                    'referencia' => $referencia,
-                                    'tiene_hora_y_fecha' => $tieneHoraYFecha,
-                                    'estado_procesado' => $estadoProcesado,
-                                    'hora_pago' => $horaPago,
-                                    'fecha_pago' => $fechaPago,
-                                    'message_estado' => $messageEstado
+                                    'transaction_id' => $pago->transaction_id,
+                                    'payment_status' => $paymentStatus,
+                                    'payment_date' => $paymentDate,
+                                    'payment_time' => $paymentTime
                                 ]);
                             }
                         }
@@ -719,7 +670,6 @@ class PagoFacilController extends Controller
                 ],
                 'estado_pagofacil' => $estadoPagoFacil
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error obteniendo estado de pago', [
                 'referencia' => $request->input('referencia'),
@@ -740,9 +690,8 @@ class PagoFacilController extends Controller
     private function actualizarEstadoPedido($pago)
     {
         try {
-            // Buscar la venta asociada al pago
             $venta = Venta::with('pedido')->find($pago->venta_id);
-            
+
             if (!$venta || !$venta->pedido) {
                 Log::warning('No se encontró venta o pedido asociado al pago', [
                     'pago_id' => $pago->id,
@@ -762,7 +711,7 @@ class PagoFacilController extends Controller
 
             // Actualizar el estado del pedido a COMPLETADO
             $venta->pedido->update(['estado' => 'COMPLETADO']);
-            
+
             Log::info('Pedido actualizado como COMPLETADO', [
                 'pedido_id' => $venta->pedido->id,
                 'venta_id' => $venta->id,
@@ -772,7 +721,6 @@ class PagoFacilController extends Controller
             ]);
 
             return true;
-
         } catch (\Exception $e) {
             Log::error('Error al actualizar estado del pedido', [
                 'pago_id' => $pago->id,

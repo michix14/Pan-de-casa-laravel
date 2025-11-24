@@ -16,9 +16,16 @@ const props = defineProps({
   }
 });
 
+// ✅ CORRECCIÓN: Constantes para estados de pago según backend
+const PAYMENT_STATUS = {
+  PENDING: 0,      // Pendiente
+  COMPLETED: 2,    // Completado (CAMBIO: era 2, ahora es 1)
+  REJECTED: 3      // Rechazado
+};
+
 const procesandoPago = ref(false);
 const qrGenerado = ref(null);
-const estadoPago = ref('inicial'); // inicial, generando, esperando, completado, error
+const estadoPago = ref('inicial');
 const mensajeError = ref('');
 const transactionId = ref(null);
 const nroPago = ref(null);
@@ -60,7 +67,6 @@ const generarPago = async () => {
       transactionId.value = data.transaction_id || null;
       nroPago.value = data.nro_pago || null;
       
-      // Iniciar polling para verificar el estado del pago
       if (transactionId.value) {
         iniciarConsultaEstado();
       }
@@ -74,7 +80,6 @@ const generarPago = async () => {
     if (error.response?.data?.message) {
       mensajeError.value = error.response.data.message;
     } else if (error.response?.data?.errors) {
-      // Manejo de errores de validación
       const firstError = Object.values(error.response.data.errors)[0];
       mensajeError.value = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
@@ -87,7 +92,7 @@ const generarPago = async () => {
 
 const iniciarConsultaEstado = () => {
   let intentos = 0;
-  const maxIntentos = 120; // 10 minutos con intervalos de 5 segundos
+  const maxIntentos = 120;
   
   const interval = setInterval(async () => {
     intentos++;
@@ -97,18 +102,17 @@ const iniciarConsultaEstado = () => {
       
       if (intentos >= maxIntentos && estadoPago.value !== 'completado') {
         console.log('Tiempo máximo de consulta alcanzado');
-        // Opcionalmente mostrar un mensaje al usuario
       }
       return;
     }
 
     await consultarEstadoPago();
-  }, 5000); // Consultar cada 5 segundos
+  }, 10000);
 
-  // Limpiar el interval después de 10 minutos
   setTimeout(() => clearInterval(interval), 600000);
 };
 
+// ✅ CORRECCIÓN: Validar estructura correcta de la respuesta
 const consultarEstadoPago = async () => {
   if (consultandoEstado.value) return;
   
@@ -120,73 +124,98 @@ const consultarEstadoPago = async () => {
     });
     const data = response.data;
 
-    if (data.success) {
-      const estado = data.estado;
-      const estadoTexto = data.estado_texto || '';
-      const datosCompletos = data.data || {};
-      
-      console.log('Estado del pago:', estado, estadoTexto);
-      console.log('Datos completos de PagoFácil:', datosCompletos);
-      
-      // Verificar si HoraPago existe y no es null
-      const horaPago = datosCompletos.HoraPago;
-      const fechaPago = datosCompletos.FechaPago;
-      const messageEstado = datosCompletos.messageEstado || estadoTexto;
-      
-      console.log('HoraPago:', horaPago, 'FechaPago:', fechaPago);
-      console.log('messageEstado:', messageEstado);
-      
-      // Verificar si el pago está completado:
-      // 1. HoraPago y FechaPago no son null
-      // 2. O messageEstado contiene específicamente "PROCESADO"
-      const tieneHoraYFecha = horaPago && horaPago !== null && fechaPago && fechaPago !== null;
-      const estadoProcesado = messageEstado && (
-        messageEstado.includes('PROCESADO') || 
-        messageEstado.includes('COMPLETADO - PROCESADO')
-      );
-      
-      if (tieneHoraYFecha || estadoProcesado) {
-        // El pago está completado
-        console.log('Pago completado detectado:', {
-          tieneHoraYFecha,
-          estadoProcesado,
-          horaPago,
-          fechaPago,
-          messageEstado
-        });
-        
-        estadoPago.value = 'completado';
-        mostrarNotificacion('¡Pago completado exitosamente!', 'success');
-        setTimeout(() => {
-          router.visit(route('pagofacil.return', { status: 'success', nro_pago: nroPago.value }));
-        }, 2000);
-      } else if (estado === 3) { // Pago rechazado
-        estadoPago.value = 'error';
-        mensajeError.value = messageEstado || 'El pago fue rechazado';
-        mostrarNotificacion('El pago fue rechazado', 'error');
-      } else {
-        // Pago aún pendiente
-        console.log('Pago aún pendiente:', {
-          horaPago,
-          fechaPago,
-          messageEstado,
-          estado
-        });
-        
-        // Verificar si hay información adicional en el mensaje de estado
-        if (messageEstado && messageEstado.includes('COMPLETADO')) {
-          console.log('Mensaje indica completado pero sin procesar completamente - verificando...');
-        }
-      }
+    console.log('Respuesta de consultarEstadoPago:', data);
+
+    if (!data || !data.success) {
+      console.warn('Respuesta inválida o sin éxito:', data);
+      consultandoEstado.value = false;
+      return;
+    }
+
+    // ✅ CORRECCIÓN: Validar que data.data existe y es un objeto
+    const paymentData = data.data;
+    
+    if (!paymentData || typeof paymentData !== 'object') {
+      console.warn('Estructura de pago inválida:', paymentData);
+      consultandoEstado.value = false;
+      return;
+    }
+
+    // ✅ CORRECCIÓN: Extraer campos con validación
+    const paymentStatus = paymentData.paymentStatus;
+    const paymentDate = paymentData.paymentDate;
+    const paymentTime = paymentData.paymentTime;
+    const amount = paymentData.amount;
+    
+    console.log('Estado del pago recibido (auto):', {
+      payment_status: paymentStatus,
+      payment_date: paymentDate,
+      payment_time: paymentTime,
+      amount: amount
+    });
+    
+    // ✅ CORRECCIÓN: Usar la constante correcta
+    // Pago completado si paymentStatus === 1 (no 2) y tiene fecha/hora válidas
+    const pagoCompletado = verificarPagoCompletado(
+      paymentStatus,
+      paymentDate,
+      paymentTime
+    );
+    
+    if (pagoCompletado) {
+      console.log('✅ Pago completado detectado (auto)');
+      estadoPago.value = 'completado';
+      mostrarNotificacion('¡Pago completado exitosamente!', 'success');
+      setTimeout(() => {
+        router.visit(route('pagofacil.return', { status: 'success', nro_pago: nroPago.value }));
+      }, 2000);
+    } else if (paymentStatus === PAYMENT_STATUS.REJECTED) { 
+      console.log('❌ Pago rechazado (auto)');
+      estadoPago.value = 'error';
+      mensajeError.value = 'El pago fue rechazado';
+      mostrarNotificacion('El pago fue rechazado', 'error');
     } else {
-      console.error('Error en respuesta de consulta:', data.message);
+      console.log('⏳ Pago aún pendiente (auto):', { 
+        paymentStatus, 
+        paymentDate, 
+        paymentTime,
+        expectedStatus: PAYMENT_STATUS.COMPLETED  || 5
+      });
     }
   } catch (error) {
-    console.error('Error al consultar estado:', error);
-    // No mostrar error en consulta de estado, solo loggearlo
+    console.error('Error al consultar estado (auto):', error);
   } finally {
     consultandoEstado.value = false;
   }
+};
+
+// ✅ CORRECCIÓN: Función dedicada para validar pago completado
+const verificarPagoCompletado = (paymentStatus, paymentDate, paymentTime) => {
+  // Validar que paymentStatus sea el correcto (1 = completado)
+  if (paymentStatus !== PAYMENT_STATUS.COMPLETED) {
+    console.log('Estado no es completado:', paymentStatus);
+    return false;
+  }
+
+  // Validar que paymentDate sea un string no vacío
+  if (!paymentDate || typeof paymentDate !== 'string' || paymentDate.trim() === '') {
+    console.log('paymentDate inválida:', paymentDate);
+    return false;
+  }
+
+  // Validar que paymentTime sea un string no vacío
+  if (!paymentTime || typeof paymentTime !== 'string' || paymentTime.trim() === '') {
+    console.log('paymentTime inválida:', paymentTime);
+    return false;
+  }
+
+  console.log('✅ Validación completa:', {
+    paymentStatus,
+    paymentDate,
+    paymentTime
+  });
+
+  return true;
 };
 
 const reiniciarPago = () => {
@@ -211,98 +240,97 @@ const formatearMoneda = (monto) => {
 };
 
 const verificarPagoManual = async () => {
-  if (!nroPago.value) {
-    console.error('No hay referencia de pago para verificar');
-    mostrarNotificacion('No hay referencia de pago disponible', 'error');
+  if (!transactionId.value) {
+    mostrarNotificacion('No hay transacción para verificar', 'error');
     return;
   }
 
   consultandoEstado.value = true;
 
   try {
-    // Opción 1: Usar el nuevo endpoint que verifica por referencia
-    const response = await axios.post(route('pagofacil.obtener-estado-pago'), {
-      referencia: nroPago.value
+    const response = await axios.post(route('pagofacil.consultar-estado'), {
+      transaction_id: transactionId.value
     });
 
-    if (response.data.success) {
-      const pago = response.data.pago;
-      const estadoPagoFacil = response.data.estado_pagofacil;
+    console.log('Respuesta completa de verificarPagoManual:', response.data);
 
-      console.log('Estado del pago verificado:', pago);
-      console.log('Estado en PagoFácil:', estadoPagoFacil);
-      
-      // Verificar tanto el estado en nuestra DB como en PagoFácil
-      let pagoCompletado = false;
-      
-      // Primero verificar nuestro estado local
-      if (pago.estado === 'completado') {
-        pagoCompletado = true;
-      }
-      
-      // Si no está completado localmente, verificar con PagoFácil
-      if (!pagoCompletado && estadoPagoFacil) {
-        const horaPago = estadoPagoFacil.HoraPago;
-        const fechaPago = estadoPagoFacil.FechaPago;
-        const messageEstado = estadoPagoFacil.messageEstado;
-        
-        console.log('Verificando HoraPago:', horaPago, 'FechaPago:', fechaPago, 'MessageEstado:', messageEstado);
-        
-        // Verificar múltiples criterios para determinar si está completado
-        const tieneHoraYFecha = horaPago && horaPago !== null && fechaPago && fechaPago !== null;
-        const estadoProcesado = messageEstado && (
-          messageEstado.includes('PROCESADO') || 
-          messageEstado.includes('COMPLETADO - PROCESADO')
-        );
-        
-        if (tieneHoraYFecha || estadoProcesado) {
-          pagoCompletado = true;
-          console.log('Pago completado según PagoFácil:', {
-            tieneHoraYFecha,
-            estadoProcesado,
-            horaPago,
-            fechaPago,
-            messageEstado
-          });
-        }
-      }
-      
-      if (pagoCompletado) {
-        estadoPago.value = 'completado';
-        mostrarNotificacion('¡Pago completado exitosamente!', 'success');
-        setTimeout(() => {
-          router.visit(route('pagofacil.return', { status: 'success', nro_pago: nroPago.value }));
-        }, 2000);
-      } else if (pago.estado === 'rechazado') {
-        estadoPago.value = 'error';
-        mensajeError.value = 'El pago fue rechazado';
-        mostrarNotificacion('El pago fue rechazado', 'error');
-      } else {
-        // Mostrar información más detallada del estado
-        let mensaje = 'El pago aún está pendiente';
-        if (estadoPagoFacil && estadoPagoFacil.messageEstado) {
-          mensaje += ` - ${estadoPagoFacil.messageEstado}`;
-        }
-        mostrarNotificacion(mensaje, 'info');
-        
-        console.log('Pago pendiente. Detalles:', {
-          estadoLocal: pago.estado,
-          horaPago: estadoPagoFacil?.HoraPago,
-          fechaPago: estadoPagoFacil?.FechaPago,
-          messageEstado: estadoPagoFacil?.messageEstado
-        });
-      }
+    // ✅ CORRECCIÓN: Validar estructura de respuesta
+    if (!response.data || !response.data.success) {
+      console.error('Respuesta inválida de la API:', response.data);
+      mostrarNotificacion('Error: Respuesta inválida del servidor', 'error');
+      consultandoEstado.value = false;
+      return;
+    }
+
+    const paymentData = response.data.data;
+    
+    if (!paymentData || typeof paymentData !== 'object') {
+      console.error('Estructura de pago inválida:', paymentData);
+      mostrarNotificacion('Error: No se recibieron datos de pago válidos', 'error');
+      consultandoEstado.value = false;
+      return;
+    }
+
+    // ✅ CORRECCIÓN: Extraer y validar campos
+    const paymentStatus = paymentData.paymentStatus;
+    const paymentDate = paymentData.paymentDate;
+    const paymentTime = paymentData.paymentTime;
+    
+    console.log('Verificación manual - Datos recibidos:', {
+      paymentStatus,
+      paymentDate,
+      paymentTime,
+      completeData: paymentData
+    });
+    
+    // ✅ CORRECCIÓN: Usar función validadora
+    const pagoCompletado = verificarPagoCompletado(
+      paymentStatus,
+      paymentDate,
+      paymentTime
+    );
+    
+    console.log('Análisis de pago completado:', {
+      paymentStatus,
+      paymentDate,
+      paymentTime,
+      pagoCompletado,
+      expectedStatus: PAYMENT_STATUS.COMPLETED
+    });
+    
+    if (pagoCompletado) {
+      console.log('✅ PAGO COMPLETADO - Procesando...');
+      estadoPago.value = 'completado';
+      mostrarNotificacion('¡Pago completado exitosamente!', 'success');
+      setTimeout(() => {
+        router.visit(route('pagofacil.return', { status: 'success', nro_pago: nroPago.value }));
+      }, 2000);
+    } else if (paymentStatus === PAYMENT_STATUS.REJECTED) {
+      console.log('❌ PAGO RECHAZADO');
+      estadoPago.value = 'error';
+      mensajeError.value = 'El pago fue rechazado por el banco';
+      mostrarNotificacion('El pago fue rechazado por el banco', 'error');
+    } else if (paymentStatus === PAYMENT_STATUS.PENDING) {
+      console.log('⏳ PAGO PENDIENTE');
+      mostrarNotificacion(`Pago aún pendiente. Esperando confirmación...`, 'info');
     } else {
-      console.error('Error verificando pago:', response.data.message);
-      mostrarNotificacion('Error al verificar el pago: ' + response.data.message, 'error');
+      console.log('⚠️ ESTADO DESCONOCIDO:', paymentStatus);
+      mostrarNotificacion(`Estado del pago desconocido: ${paymentStatus}. Por favor intenta de nuevo.`, 'info');
     }
   } catch (error) {
-    console.error('Error verificando pago:', error);
+    console.error('Error verificando pago:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      fullError: error
+    });
     
-    // Fallback: intentar con el método original si hay transaction_id
-    if (transactionId.value) {
-      console.log('Intentando con método alternativo...');
-      await consultarEstadoPago();
+    if (error.response?.status === 404) {
+      mostrarNotificacion('Transacción no encontrada en el servidor', 'error');
+    } else if (error.response?.status === 500) {
+      mostrarNotificacion('Error interno del servidor. Intenta de nuevo.', 'error');
+    } else if (error.response?.data?.message) {
+      mostrarNotificacion('Error: ' + error.response.data.message, 'error');
     } else {
       mostrarNotificacion('Error al verificar el pago. Inténtalo nuevamente.', 'error');
     }
@@ -330,7 +358,6 @@ const simularCallback = async () => {
 
     console.log('Callback simulado exitosamente:', response.data);
     
-    // Verificar el estado después del callback
     setTimeout(() => {
       consultarEstadoPago();
     }, 1000);
@@ -362,7 +389,6 @@ const simularCallbackError = async () => {
 
     console.log('Callback de error simulado exitosamente:', response.data);
     
-    // Verificar el estado después del callback
     setTimeout(() => {
       consultarEstadoPago();
     }, 1000);
@@ -382,7 +408,6 @@ const mostrarNotificacion = (mensaje, tipo = 'info') => {
     visible: true
   };
   
-  // Ocultar notificación después de 5 segundos
   setTimeout(() => {
     if (notificacion.value) {
       notificacion.value.visible = false;
@@ -706,9 +731,9 @@ const cerrarNotificacion = () => {
               <div class="text-center text-xs text-blue-600 mb-3">
                 <p>✓ Pago generado exitosamente</p>
                 <p>⏳ Esperando confirmación del banco</p>
-                <p class="mt-1 text-blue-500">La verificación se realiza automáticamente cada 5 segundos</p>
+                <p class="mt-1 text-blue-500">La verificación se realiza automáticamente cada 30 segundos</p>
                 <p class="mt-1 text-blue-400">
-                  <strong>Estado:</strong> Esperando HoraPago y FechaPago de PagoFácil
+                  <strong>Estado esperado:</strong> paymentStatus = {{ PAYMENT_STATUS.COMPLETED }}, con paymentDate y paymentTime
                 </p>
               </div>
 
@@ -733,8 +758,8 @@ const cerrarNotificacion = () => {
 
             <!-- Información adicional -->
             <div class="text-xs text-gray-500 mb-4">
-              <p>• El estado del pago se verifica automáticamente cada 5 segundos</p>
-              <p>• El pago se considera completado cuando PagoFácil devuelve HoraPago y FechaPago</p>
+              <p>• El estado del pago se verifica automáticamente cada 30 segundos</p>
+              <p>• El pago se considera completado cuando paymentStatus = {{ PAYMENT_STATUS.COMPLETED }} y tiene paymentDate y paymentTime válidos</p>
               <p>• Una vez realizado el pago, la confirmación puede tardar unos segundos</p>
               <p>• Puedes verificar manualmente el estado con el botón de arriba</p>
             </div>

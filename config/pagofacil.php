@@ -16,7 +16,7 @@ return [
     
     'token_secret' => env('PAGOFACIL_TOKEN_SECRET', '9E7BC239DDC04F83B49FFDA5'),
     
-    'commerce_id' => env('PAGOFACIL_COMMERCE_ID', 'd029fa3a95e174a19934857f535eb9427d967218a36ea014b70ad704bc6c8d1c'),
+   // 'commerce_id' => env('PAGOFACIL_COMMERCE_ID', 'd029fa3a95e174a19934857f535eb9427d967218a36ea014b70ad704bc6c8d1c'),
     
     // URLs de callback y retorno
     'callback_url' => env('PAGOFACIL_CALLBACK_URL', env('APP_URL', 'http://localhost') . '/pagofacil/callback'),
